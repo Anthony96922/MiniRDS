@@ -109,14 +109,6 @@ int poll_control_pipe() {
 #endif
 			return 1;
 		}
-		if (res[0] == 'A' && res[1] == 'B') {
-			uint8_t ab = (arg[0] == 'A');
-			set_rds_ab(ab);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "Set AB to %s\n", ab ? "A" : "B");
-#endif
-			return 1;
-		}
 		if (res[0] == 'D' && res[1] == 'I') {
 			uint8_t di = strtoul(arg, NULL, 10);
 			set_rds_di(di);

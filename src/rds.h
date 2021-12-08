@@ -211,7 +211,6 @@ extern void set_rds_af(struct rds_af_t new_af_list);
 extern int8_t add_rds_af(struct rds_af_t *af_list, float freq);
 extern void set_rds_tp(uint8_t tp);
 extern void set_rds_ms(uint8_t ms);
-extern void set_rds_ab(uint8_t ab);
 extern void set_rds_ct(uint8_t ct);
 extern void set_rds_di(uint8_t di);
 extern float get_rds_sample(uint8_t stream_num);
