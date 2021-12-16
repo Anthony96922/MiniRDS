@@ -17,5 +17,5 @@
  */
 
 extern int open_control_pipe(char *filename);
-extern int close_control_pipe();
-extern int poll_control_pipe();
+extern void close_control_pipe();
+extern void poll_control_pipe();

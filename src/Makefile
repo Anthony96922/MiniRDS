@@ -6,7 +6,7 @@ name = minirds
 RDS2 = 0
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=gnu99 -pedantic
+CFLAGS = -Wall -Wextra -pedantic -O2 -std=gnu99
 
 obj = $(name).o rds.o waveforms.o fm_mpx.o control_pipe.o osc.o \
 	resampler.o modulator.o lib.o

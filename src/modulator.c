@@ -54,6 +54,8 @@ static struct rds_context rds_contexts[4];
  */
 float get_rds_sample(uint8_t stream_num) {
 	struct rds_context *rds = &rds_contexts[stream_num];
+	uint16_t idx;
+	float *cur_waveform;
 
 	if (rds->sample_count == SAMPLES_PER_BIT) {
 		if (rds->bit_pos == BITS_PER_GROUP) {
@@ -74,11 +76,11 @@ float get_rds_sample(uint8_t stream_num) {
 		rds->prev_output = rds->cur_output;
 		rds->cur_output = rds->prev_output ^ rds->cur_bit;
 
-		uint16_t idx = rds->in_sample_index;
+		idx = rds->in_sample_index;
+		cur_waveform = sym_waveforms[rds->cur_output];
 
-		for (uint16_t j = 0; j < FILTER_SIZE; j++) {
-			rds->sample_buffer[idx++] +=
-				sym_waveforms[rds->cur_output][j];
+		for (uint16_t i = 0; i < FILTER_SIZE; i++) {
+			rds->sample_buffer[idx++] += *cur_waveform++;
 			if (idx == SAMPLE_BUFFER_SIZE) idx = 0;
 		}
 

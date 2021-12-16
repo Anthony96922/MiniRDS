@@ -27,13 +27,6 @@
 #include "control_pipe.h"
 #include "resampler.h"
 
-// pthread
-static pthread_t control_pipe_thread;
-
-static pthread_mutex_t control_pipe_mutex	= PTHREAD_MUTEX_INITIALIZER;
-
-static pthread_cond_t control_pipe_cond;
-
 static uint8_t stop_rds;
 
 static void stop() {
@@ -41,15 +34,24 @@ static void stop() {
 }
 
 static inline void float2char2channel(float *inbuf, char *outbuf, size_t frames) {
-	float in;
 	uint16_t j = 0, k = 0;
 	int16_t sample;
+	char lower, upper;
 
 	for (uint16_t i = 0; i < frames; i++) {
-		in = (inbuf[k+0] + inbuf[k+1]) / 2.0f;
-		sample = lroundf(in * 32767.0f);
-		outbuf[j+0] = outbuf[j+2] = sample & 255;
-		outbuf[j+1] = outbuf[j+3] = sample >> 8;
+		sample = lroundf((inbuf[k+0] + inbuf[k+1]) * 16383.5f);
+
+		// convert from short to char
+		lower = sample & 255;
+		sample >>= 8;
+		upper = sample & 255;
+
+		// balanced output
+		outbuf[j+0] = +lower;
+		outbuf[j+1] = +upper;
+		outbuf[j+2] = -lower;
+		outbuf[j+3] = -upper;
+
 		j += 4;
 		k += 2;
 	}
@@ -72,18 +74,25 @@ static void show_help(char *name, struct rds_params_t def_params) {
 		"\n"
 		"Usage: %s [options]\n"
 		"\n"
-		"    -m,--volume       RDS volume\n"
-		"    -i,--pi           Program Identification code [default: %04X]\n"
-		"    -s,--ps           Program Service name [default: \"%s\"]\n"
-		"    -r,--rt           Radio Text [default: \"%s\"]\n"
-		"    -p,--pty          Program Type [default: %d]\n"
-		"    -T,--tp           Traffic Program [default: %d]\n"
-		"    -A,--af           Alternative Frequency\n"
+		"    -m,--volume       Output volume\n"
+		"\n"
+		"    -i,--pi           Program Identification code\n"
+		"                        [default: %04X]\n"
+		"    -s,--ps           Program Service name\n"
+		"                        [default: \"%s\"]\n"
+		"    -r,--rt           Radio Text\n"
+		"                        [default: \"%s\"]\n"
+		"    -p,--pty          Program Type\n"
+		"                        [default: %u]\n"
+		"    -T,--tp           Traffic Program\n"
+		"                        [default: %u]\n"
+		"    -A,--af           Alternative Frequency (FM/LW/MW)\n"
 		"                        (more than one AF may be passed)\n"
-		"    -P,--ptyn         PTY Name\n"
-		"    -S,--callsign     Callsign to calculate the PI code from\n"
-		"                        (overrides -i/--pi)\n"
-		"    -C,--ctl          Control pipe\n"
+		"    -P,--ptyn         Program Type Name\n"
+		"\n"
+		"    -S,--callsign     FCC callsign to calculate the PI code from\n"
+		"                        (overrides -i,--pi)\n"
+		"    -C,--ctl          FIFO control pipe\n"
 		"\n",
 		name,
 		def_params.pi, def_params.ps,
@@ -95,7 +104,7 @@ static void show_help(char *name, struct rds_params_t def_params) {
 // check MPX volume level
 static uint8_t check_mpx_vol(uint8_t volume) {
 	if (volume < 1 || volume > 100) {
-		fprintf(stderr, "RDS volume must be between 1 - 100.\n");
+		fprintf(stderr, "Output volume must be between 1-100.\n");
 		return 1;
 	}
 	return 0;
@@ -110,9 +119,9 @@ int main(int argc, char **argv) {
 		.pi = 0x1000
 	};
 	char callsign[5];
-	char tmp_ps[PS_LENGTH+1];
-	char tmp_rt[RT_LENGTH+1];
-	char tmp_ptyn[PTYN_LENGTH+1];
+	char ps[PS_LENGTH+1];
+	char rt[RT_LENGTH+1];
+	char ptyn[PTYN_LENGTH+1];
 	uint8_t volume = 50;
 
 	// buffers
@@ -133,6 +142,9 @@ int main(int argc, char **argv) {
 
 	// pthread
 	pthread_attr_t attr;
+	pthread_t control_pipe_thread;
+	pthread_mutex_t control_pipe_mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t control_pipe_cond;
 
 	const char	*short_opt = "m:R:i:s:r:p:T:A:P:S:C:h";
 	struct option	long_opt[] =
@@ -156,9 +168,9 @@ int main(int argc, char **argv) {
 
 	memset(control_pipe, 0, 51);
 	memset(callsign, 0, 5);
-	memset(tmp_ps, 0, PS_LENGTH+1);
-	memset(tmp_rt, 0, RT_LENGTH+1);
-	memset(tmp_ptyn, 0, PTYN_LENGTH+1);
+	memset(ps, 0, PS_LENGTH+1);
+	memset(rt, 0, RT_LENGTH+1);
+	memset(ptyn, 0, PTYN_LENGTH+1);
 
 	while ((opt = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
 		switch (opt) {
@@ -172,30 +184,30 @@ int main(int argc, char **argv) {
 				break;
 
 			case 's': //ps
-				strncpy(tmp_ps, optarg, 8);
-				memcpy(rds_params.ps, tmp_ps, 8);
+				strncpy(ps, optarg, PS_LENGTH);
+				memcpy(rds_params.ps, ps, PS_LENGTH);
 				break;
 
 			case 'r': //rt
-				strncpy(tmp_rt, optarg, 64);
-				memcpy(rds_params.rt, tmp_rt, 64);
+				strncpy(rt, optarg, RT_LENGTH);
+				memcpy(rds_params.rt, rt, RT_LENGTH);
 				break;
 
 			case 'p': //pty
-				rds_params.pty = strtoul(optarg, NULL, 10);
+				rds_params.pty = (uint8_t)strtoul(optarg, NULL, 10);
 				break;
 
 			case 'T': //tp
-				rds_params.tp = strtoul(optarg, NULL, 10);
+				rds_params.tp = (uint8_t)strtoul(optarg, NULL, 10);
 				break;
 
 			case 'A': //af
-				if (add_rds_af(&rds_params.af, strtof(optarg, NULL)) < 0) return 1;
+				if (add_rds_af(&rds_params.af, strtof(optarg, NULL)) == 1) return 1;
 				break;
 
 			case 'P': //ptyn
-				strncpy(tmp_ptyn, optarg, 8);
-				memcpy(rds_params.ptyn, tmp_ptyn, 8);
+				strncpy(ptyn, optarg, PTYN_LENGTH);
+				memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
 				break;
 
 			case 'S': //callsign
@@ -228,6 +240,14 @@ int main(int argc, char **argv) {
 	signal(SIGINT, stop);
 	signal(SIGTERM, stop);
 
+	// Initialize the baseband generator
+	fm_mpx_init(MPX_SAMPLE_RATE);
+	set_output_volume(volume);
+
+	// Initialize the RDS modulator
+	init_rds_encoder(rds_params, callsign);
+
+	// AO format
 	memset(&format, 0, sizeof(struct ao_sample_format));
 	format.channels = 2;
 	format.bits = 16;
@@ -236,44 +256,30 @@ int main(int argc, char **argv) {
 
 	ao_initialize();
 
-	if ((device = ao_open_live(ao_default_driver_id(), &format, NULL)) == NULL) {
+	device = ao_open_live(ao_default_driver_id(), &format, NULL);
+	if (device == NULL) {
 		fprintf(stderr, "Error: cannot open sound device.\n");
 		ao_shutdown();
-		return -1;
+		goto exit;
 	}
 
 	// SRC out (MPX -> output)
+	memset(&src_data, 0, sizeof(SRC_DATA));
 	src_data.input_frames = NUM_MPX_FRAMES_IN;
 	src_data.output_frames = NUM_MPX_FRAMES_OUT;
 	src_data.src_ratio = (double)OUTPUT_SAMPLE_RATE / (double)MPX_SAMPLE_RATE;
 	src_data.data_in = mpx_buffer;
 	src_data.data_out = out_buffer;
-	src_data.end_of_input = 0;
 
-	if (resampler_init(&src_state, 2) < 0) {
-		fprintf(stderr, "Could not create output resampler.\n");
-		goto exit;
-	}
-
-	// Initialize the baseband generator
-	fm_mpx_init();
-	set_output_volume(volume);
-
-	// Initialize the RDS modulator
-	init_rds_encoder(rds_params, callsign);
-
-	// SRC in (input -> MPX)
 	r = resampler_init(&src_state, 2);
 	if (r < 0) {
 		fprintf(stderr, "Could not create output resampler.\n");
 		goto exit;
 	}
 
-	pthread_attr_destroy(&attr);
-
 	// Initialize the control pipe reader
-	if(control_pipe[0]) {
-		if(open_control_pipe(control_pipe) == 0) {
+	if (control_pipe[0]) {
+		if (open_control_pipe(control_pipe) == 0) {
 			fprintf(stderr, "Reading control commands on %s.\n", control_pipe);
 			// Create control pipe polling worker
 			r = pthread_create(&control_pipe_thread, &attr, control_pipe_worker, NULL);
@@ -289,7 +295,7 @@ int main(int argc, char **argv) {
 	}
 
 	for (;;) {
-		fm_rds_get_frames(mpx_buffer);
+		fm_rds_get_frames(mpx_buffer, NUM_MPX_FRAMES_IN);
 
 		if (resample(src_state, src_data, &frames) < 0) break;
 
@@ -308,16 +314,19 @@ int main(int argc, char **argv) {
 	}
 
 exit:
-	if(control_pipe[0]) {
+	if (control_pipe[0]) {
 		// shut down threads
 		fprintf(stderr, "Waiting for threads to shut down.\n");
 		pthread_cond_signal(&control_pipe_cond);
 		pthread_join(control_pipe_thread, NULL);
 	}
 
+	pthread_attr_destroy(&attr);
+
 	resampler_exit(src_state);
 
 	fm_mpx_exit();
+	exit_rds_encoder();
 
 	free(mpx_buffer);
 	free(out_buffer);

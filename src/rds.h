@@ -20,8 +20,8 @@
 #define RDS_H
 
 /* The RDS error-detection code generator polynomial is
-   x^10 + x^8 + x^7 + x^5 + x^4 + x^3 + x^0
-*/
+ * x^10 + x^8 + x^7 + x^5 + x^4 + x^3 + x^0
+ */
 #define POLY			0x1B9
 #define POLY_DEG		10
 #define MSB_BIT			0x8000
@@ -52,7 +52,11 @@ typedef struct rds_af_t {
 	uint8_t afs[MAX_AFS*2]; // doubled for LF/MF codes
 } rds_af_t;
 
-#define AF_LFMF_FOLLOWS	250
+// AF codes
+#define AF_CODE_FILLER		205
+#define AF_CODE_NO_AF		224
+#define AF_CODE_NUM_AFS_BASE	AF_CODE_NO_AF
+#define AF_CODE_LFMF_FOLLOWS	250
 
 typedef struct rds_params_t {
 	uint16_t pi;
@@ -146,10 +150,10 @@ typedef struct rds_params_t {
 #define GET_GROUP_TYPE(x)	((x >> 4) & 15)
 #define GET_GROUP_VER(x)	(x & 1) // only check bit 0
 
-#define DI_STEREO	1 // 1 - Stereo
-#define DI_AH		2 // 2 - Artificial Head
-#define DI_COMPRESSED	4 // 4 - Compressed
-#define DI_DPTY		8 // 8 - Dynamic PTY
+#define DI_STEREO	(1 << 0) // 1 - Stereo
+#define DI_AH		(1 << 1) // 2 - Artificial Head
+#define DI_COMPRESSED	(1 << 2) // 4 - Compressed
+#define DI_DPTY		(1 << 3) // 8 - Dynamic PTY
 
 // Bit mask
 // Lower
@@ -208,7 +212,7 @@ extern void set_rds_ta(uint8_t ta);
 extern void set_rds_pty(uint8_t pty);
 extern void set_rds_ptyn(char *ptyn);
 extern void set_rds_af(struct rds_af_t new_af_list);
-extern int8_t add_rds_af(struct rds_af_t *af_list, float freq);
+extern uint8_t add_rds_af(struct rds_af_t *af_list, float freq);
 extern void set_rds_tp(uint8_t tp);
 extern void set_rds_ms(uint8_t ms);
 extern void set_rds_ct(uint8_t ct);

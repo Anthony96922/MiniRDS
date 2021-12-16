@@ -31,7 +31,8 @@
  *
  * Create wave constants for a given frequency
  */
-static void create_wave(uint32_t rate, float freq, float *sin_wave, float *cos_wave, uint16_t *max_phase) {
+static void create_wave(uint32_t rate, float freq,
+		float *sin_wave, float *cos_wave, uint16_t *max_phase) {
 	float sin_sample, cos_sample;
 	// used to determine if we have completed a cycle
 	uint8_t zero_crossings = 0;
@@ -63,15 +64,16 @@ static void create_wave(uint32_t rate, float freq, float *sin_wave, float *cos_w
  * Create waveform lookup tables for frequencies in the array
  *
  */
-void init_osc(struct osc_t *osc_ctx, uint32_t sample_rate, const float *c_freqs) {
-	uint8_t num_freqs = 0;
+void init_osc(struct osc_t *osc_ctx,
+		uint32_t sample_rate, const float *c_freqs) {
+
+	osc_ctx->num_freqs = 0;
+
 	// look for the 0 terminator
 	for (;;) {
-		if (c_freqs[num_freqs] == 0.0) break;
-		num_freqs++;
+		if (c_freqs[osc_ctx->num_freqs] == 0.0) break;
+		osc_ctx->num_freqs++;
 	}
-
-	osc_ctx->num_freqs = num_freqs;
 
 	/*
 	 * waveform tables
@@ -79,16 +81,17 @@ void init_osc(struct osc_t *osc_ctx, uint32_t sample_rate, const float *c_freqs)
 	 * first index is wave frequency
 	 * second index is wave data
 	 */
-	osc_ctx->sine_waves = malloc(num_freqs * sizeof(float));
-	osc_ctx->cosine_waves = malloc(num_freqs * sizeof(float));
+	osc_ctx->sine_waves = malloc(osc_ctx->num_freqs * sizeof(float));
+	osc_ctx->cosine_waves = malloc(osc_ctx->num_freqs * sizeof(float));
+
 	/*
 	 * phase table
 	 *
 	 * current and max
 	 */
-	osc_ctx->phases = malloc(num_freqs * 2 * sizeof(uint16_t));
+	osc_ctx->phases = malloc(osc_ctx->num_freqs * 2 * sizeof(uint16_t));
 
-	for (uint8_t i = 0; i < num_freqs; i++) {
+	for (uint8_t i = 0; i < osc_ctx->num_freqs; i++) {
 		osc_ctx->sine_waves[i] = malloc(sample_rate * sizeof(float));
 		osc_ctx->cosine_waves[i] = malloc(sample_rate * sizeof(float));
 		osc_ctx->phases[i] = malloc(2 * sizeof(uint16_t));

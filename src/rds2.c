@@ -66,7 +66,7 @@ static void get_rds2_group(int stream_num, uint16_t *blocks) {
 		break;
 	}
 
-	//fprintf(stderr, "Stream %d: %04x %04x %04x %04x\n",
+	//fprintf(stderr, "Stream %u: %04x %04x %04x %04x\n",
 	//	stream_num, blocks[0], blocks[1], blocks[2], blocks[3]);
 }
 

@@ -25,7 +25,7 @@
  */
 
 // RDS PTY list
-static char ptys[2][32][30] = {
+static char *ptys[2][32] = {
 	// NRSC RBDS
 	{
 		"None", "News", "Information", "Sports",
@@ -126,7 +126,8 @@ uint16_t callsign2pi(char *callsign) {
 
 	// Call letter exceptions
 	if ((pi_code & 0x0F00) == 0) { // When 3rd char is 0
-		pi_code = 0xA000 + ((pi_code & 0xF000) >> 4) + (pi_code & 0x00FF);
+		pi_code = 0xA000 +
+			((pi_code & 0xF000) >> 4) + (pi_code & 0x00FF);
 	}
 
 	if ((pi_code & 0x00FF) == 0) { // When 1st & 2nd chars are 0

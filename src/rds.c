@@ -24,6 +24,12 @@
 // needed for clock time
 #include <time.h>
 
+/*
+ * Uncomment for LF/MF AF coding for ITU region 1 & 3 9 kHz spacing
+ *
+ */
+//#define LFMF_AF_ROW
+
 static struct rds_params_t rds_data;
 
 // RDS data controls
@@ -107,19 +113,20 @@ static uint16_t get_next_af() {
 
 	if (rds_data.af.num_afs) {
 		if (af_state == 0) {
-			out = (rds_data.af.num_afs + 224) << 8 | rds_data.af.afs[0];
+			out = (AF_CODE_NUM_AFS_BASE + rds_data.af.num_afs) << 8;
+			out |= rds_data.af.afs[0];
 			af_state += 1;
 		} else {
 			out = rds_data.af.afs[af_state] << 8;
 			if (rds_data.af.afs[af_state+1])
 				out |= rds_data.af.afs[af_state+1];
 			else
-				out |= 205; // filler
+				out |= AF_CODE_FILLER;
 			af_state += 2;
 		}
 		if (af_state >= rds_data.af.num_entries) af_state = 0;
 	} else {
-		out = 224 << 8 | 205; // no AF
+		out = AF_CODE_NO_AF << 8 | AF_CODE_FILLER;
 	}
 
 	return out;
@@ -173,7 +180,7 @@ static void get_rds_rt_group(uint16_t *blocks) {
 		rt_state = 0; // rewind when new RT arrives
 	}
 
-	blocks[1] |= 2 << 12 | rds_state.ab << 4 | rt_state;
+	blocks[1] |= 2 << 12 | (rds_state.ab & 1) << 4 | (rt_state & 15);
 	blocks[2] = rt_text[rt_state*4+0] << 8 | rt_text[rt_state*4+1];
 	blocks[3] = rt_text[rt_state*4+2] << 8 | rt_text[rt_state*4+3];
 
@@ -187,12 +194,14 @@ static void get_rds_oda_group(uint16_t *blocks) {
 	blocks[1] |= 3 << 12;
 
 	// select ODA
-	rds_oda_t this_oda = odas[oda_state.current++];
+	struct rds_oda_t this_oda = odas[oda_state.current];
 
 	blocks[1] |= GET_GROUP_TYPE(this_oda.group) << 1 |
 		     GET_GROUP_VER(this_oda.group);
 	blocks[2] = this_oda.scb;
 	blocks[3] = this_oda.aid;
+
+	oda_state.current++;
 	if (oda_state.current == oda_state.count) oda_state.current = 0;
 }
 
@@ -207,7 +216,7 @@ static void get_rds_ptyn_group(uint16_t *blocks) {
 		rds_state.ptyn_update = 0;
 	}
 
-	blocks[1] |= 10 << 12 | ptyn_state;
+	blocks[1] |= 10 << 12 | (ptyn_state & 3);
 	blocks[2] = ptyn_text[ptyn_state*4+0] << 8 | ptyn_text[ptyn_state*4+1];
 	blocks[3] = ptyn_text[ptyn_state*4+2] << 8 | ptyn_text[ptyn_state*4+3];
 
@@ -310,25 +319,30 @@ static void show_af_list(struct rds_af_t af_list) {
 	float freq;
 	uint8_t af_is_lf_mf = 0;
 
-	fprintf(stderr, "AF: %d,", af_list.num_afs);
+	fprintf(stderr, "AF: %u,", af_list.num_afs);
 
 	for (uint8_t i = 0; i < af_list.num_entries; i++) {
-		if (af_list.afs[i] == AF_LFMF_FOLLOWS) {
+		if (af_list.afs[i] == AF_CODE_LFMF_FOLLOWS) {
 			// The next AF will be for LF/MF
 			af_is_lf_mf = 1;
 		} else {
 			if (af_is_lf_mf) {
-				// LF
-				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) {
-					freq = 153.0f + ((af_list.afs[i] - 1) * 9.0f);
+#ifdef LFMF_AF_ROW
+				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { // LF
+					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
 					fprintf(stderr, " (LF)%.0f", freq);
-				} else { // (af_list.afs[i] >= 16 && af_list.afs[i] <= 135)
-					freq = 531.0f + ((af_list.afs[i] - 16) * 9.0f);
+				} else { //if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) { // MF
+					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
 					fprintf(stderr, " (MF)%.0f", freq);
 				}
+#else
+				// MF (FCC)
+				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
+				fprintf(stderr, " (MF)%.0f", freq);
+#endif
 			} else {
 				// FM
-				freq = (af_list.afs[i] + 875) / 10.0f;
+				freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
 				fprintf(stderr, " %.1f", freq);
 			}
 			af_is_lf_mf = 0;
@@ -357,7 +371,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	}
 
 	fprintf(stderr, "RDS Options:\n");
-	fprintf(stderr, "PI: %04X, PS: \"%s\", PTY: %d (%s), TP: %d\n",
+	fprintf(stderr, "PI: %04X, PS: \"%s\", PTY: %u (%s), TP: %u\n",
 		rds_params.pi,
 		rds_params.ps,
 		rds_params.pty,
@@ -451,39 +465,50 @@ void set_rds_rtplus_tags(uint8_t *tags) {
 /*
  * AF stuff
  */
-int8_t add_rds_af(struct rds_af_t *af_list, float freq) {
+uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 	uint16_t af;
 
 	// check if the AF list is full
 	if (af_list->num_afs + 1 > MAX_AFS) {
-		fprintf(stderr, "AF list is full.\n");
-		return -1;
+		fprintf(stderr, "Too many AF entries.\n");
+		return 1;
 	}
 
 	// check if new frequency is valid
 	if (freq >= 87.6f && freq <= 107.9f) { // FM
-		af = (uint8_t)(freq * 10.0f) - 875;
+		af = (uint16_t)(freq * 10.0f) - 875;
 		af_list->afs[af_list->num_entries] = af;
 		af_list->num_entries += 1;
+#ifdef LFMF_AF_ROW
 	} else if (freq >= 153.0f && freq <= 279.0f) {
-		af = (uint8_t)((freq - 153.0f) / 9) + 1;
-		af_list->afs[af_list->num_entries+0] = AF_LFMF_FOLLOWS;
+		af = ((uint16_t)(freq - 153.0f) / 9) + 1;
+		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
 		af_list->afs[af_list->num_entries+1] = af;
 		af_list->num_entries += 2;
 	} else if (freq >= 531.0f && freq <= 1602.0f) {
-		af = (uint8_t)((freq - 531.0f) / 9) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_LFMF_FOLLOWS;
+		af = ((uint16_t)(freq - 531.0f) / 9) + 16;
+		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
 		af_list->afs[af_list->num_entries+1] = af;
 		af_list->num_entries += 2;
 	} else {
 		fprintf(stderr, "AF must be between 87.6-107.9 MHz, "
-			"153-279 kHz or 531-1602 kHz\n");
-		return -1;
+			"153-279 kHz or 531-1602 kHz (with 9 kHz spacing)\n");
+#else
+	} else if (freq >= 530.0f && freq <= 1610.0f) {
+		af = ((uint16_t)(freq - 530.0f) / 10) + 16;
+		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
+		af_list->afs[af_list->num_entries+1] = af;
+		af_list->num_entries += 2;
+	} else {
+		fprintf(stderr, "AF must be between 87.6-107.9 MHz "
+			"or 530-1610 kHz (with 10 kHz spacing)\n");
+#endif
+		return 1;
 	}
 
 	af_list->num_afs++;
 
-	return 1;
+	return 0;
 }
 
 void set_rds_af(struct rds_af_t new_af_list) {

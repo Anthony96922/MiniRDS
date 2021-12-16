@@ -60,7 +60,7 @@ static struct osc_t mpx_osc;
 
 void set_output_volume(uint8_t vol) {
 	if (vol > 100) vol = 100;
-	mpx_vol = (vol / 100.0f);
+	mpx_vol = ((float)vol / 100.0f);
 }
 
 // subcarrier volumes
@@ -76,20 +76,24 @@ static float volumes[] = {
 };
 
 void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
+#ifdef RDS2
 	if (carrier > 4) return;
+#else
+	if (carrier > 1) return;
+#endif
 	if (new_volume >= 15) volumes[carrier] = 0.09f;
-	volumes[carrier] = new_volume / 100.0f;
+	volumes[carrier] = (float)new_volume / 100.0f;
 }
 
-void fm_mpx_init() {
-	init_osc(&mpx_osc, MPX_SAMPLE_RATE, carrier_frequencies);
+void fm_mpx_init(uint32_t sample_rate) {
+	init_osc(&mpx_osc, sample_rate, carrier_frequencies);
 }
 
-void fm_rds_get_frames(float *outbuf) {
+void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 	uint16_t j = 0;
 	float out;
 
-	for (size_t i = 0; i < NUM_MPX_FRAMES_IN; i++) {
+	for (size_t i = 0; i < num_frames; i++) {
 		out = 0.0f;
 
 		// Pilot tone for calibration
@@ -112,5 +116,4 @@ void fm_rds_get_frames(float *outbuf) {
 
 void fm_mpx_exit() {
 	exit_osc(&mpx_osc);
-	exit_rds_encoder();
 }
