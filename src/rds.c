@@ -24,12 +24,6 @@
 // needed for clock time
 #include <time.h>
 
-/*
- * Uncomment for LF/MF AF coding for ITU region 1 & 3 9 kHz spacing
- *
- */
-//#define LFMF_AF_ROW
-
 static struct rds_params_t rds_data;
 
 // RDS data controls

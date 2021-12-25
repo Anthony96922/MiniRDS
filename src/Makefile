@@ -2,11 +2,16 @@
 # name of executable
 name = minirds
 
+# version
+VERSION=1.0
+
 # change to "1" to enable RDS2 capabilities (don't forget to run "make clean" first)
 RDS2 = 0
 
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -O2 -std=gnu99
+
+CFLAGS += -DVERSION=\"$(VERSION)\"
 
 obj = $(name).o rds.o waveforms.o fm_mpx.o control_pipe.o osc.o \
 	resampler.o modulator.o lib.o

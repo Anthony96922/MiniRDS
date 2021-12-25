@@ -16,6 +16,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * Uncomment for LF/MF AF coding for ITU region 1 & 3 9 kHz spacing
+ *
+ */
+//#define LFMF_AF_ROW
+
 #ifndef RDS_H
 #define RDS_H
 
@@ -49,7 +55,7 @@
 typedef struct rds_af_t {
 	uint8_t num_entries;
 	uint8_t num_afs;
-	uint8_t afs[MAX_AFS*2]; // doubled for LF/MF codes
+	uint8_t afs[MAX_AFS*2]; // doubled for LF/MF coding
 } rds_af_t;
 
 // AF codes

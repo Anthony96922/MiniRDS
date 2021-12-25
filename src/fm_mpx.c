@@ -46,7 +46,7 @@ static const float carrier_frequencies[] = {
 	// RDS 2
 	66500.0, // stream 1
 	71250.0, // stream 2
-	76000.0,  // stream 2
+	76000.0, // stream 2
 #endif
 	0.0 // terminator
 };

@@ -36,10 +36,10 @@ static void stop() {
 static inline void float2char2channel(float *inbuf, char *outbuf, size_t frames) {
 	uint16_t j = 0, k = 0;
 	int16_t sample;
-	char lower, upper;
+	int8_t lower, upper;
 
 	for (uint16_t i = 0; i < frames; i++) {
-		sample = lroundf((inbuf[k+0] + inbuf[k+1]) * 16383.5f);
+		sample = lroundf((inbuf[j] + inbuf[j+1]) * 16383.5f);
 
 		// convert from short to char
 		lower = sample & 255;
@@ -47,13 +47,13 @@ static inline void float2char2channel(float *inbuf, char *outbuf, size_t frames)
 		upper = sample & 255;
 
 		// balanced output
-		outbuf[j+0] = +lower;
-		outbuf[j+1] = +upper;
-		outbuf[j+2] = -lower;
-		outbuf[j+3] = -upper;
+		outbuf[k+0] = +lower;
+		outbuf[k+1] = +upper;
+		outbuf[k+2] = -lower;
+		outbuf[k+3] = -upper;
 
-		j += 4;
-		k += 2;
+		j += 2;
+		k += 4;
 	}
 }
 
@@ -69,8 +69,9 @@ static void *control_pipe_worker() {
 }
 
 static void show_help(char *name, struct rds_params_t def_params) {
-	fprintf(stderr,
+	printf(
 		"This is MiniRDS, a lightweight RDS encoder.\n"
+		"Version %s\n"
 		"\n"
 		"Usage: %s [options]\n"
 		"\n"
@@ -86,19 +87,31 @@ static void show_help(char *name, struct rds_params_t def_params) {
 		"                        [default: %u]\n"
 		"    -T,--tp           Traffic Program\n"
 		"                        [default: %u]\n"
-		"    -A,--af           Alternative Frequency (FM/LW/MW)\n"
+#ifdef LFMF_AF_ROW
+		"    -A,--af           Alternative Frequency (FM/LF/MF)\n"
+#else
+		"    -A,--af           Alternative Frequency (FM/MF)\n"
+#endif
 		"                        (more than one AF may be passed)\n"
 		"    -P,--ptyn         Program Type Name\n"
 		"\n"
 		"    -S,--callsign     FCC callsign to calculate the PI code from\n"
 		"                        (overrides -i,--pi)\n"
 		"    -C,--ctl          FIFO control pipe\n"
+		"\n"
+		"    -h,--help         Show this help text and exit\n"
+		"    -v,--version      Show version and exit\n"
 		"\n",
+		VERSION,
 		name,
 		def_params.pi, def_params.ps,
 		def_params.rt, def_params.pty,
 		def_params.tp
 	);
+}
+
+static void show_version() {
+	printf("MiniRDS version %s\n", VERSION);
 }
 
 // check MPX volume level
@@ -146,7 +159,7 @@ int main(int argc, char **argv) {
 	pthread_mutex_t control_pipe_mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t control_pipe_cond;
 
-	const char	*short_opt = "m:R:i:s:r:p:T:A:P:S:C:h";
+	const char	*short_opt = "m:R:i:s:r:p:T:A:P:S:C:hv";
 	struct option	long_opt[] =
 	{
 		{"volume",	required_argument, NULL, 'm'},
@@ -163,6 +176,7 @@ int main(int argc, char **argv) {
 		{"ctl",		required_argument, NULL, 'C'},
 
 		{"help",	no_argument, NULL, 'h'},
+		{"version",	no_argument, NULL, 'v'},
 		{ 0,		0,		0,	0 }
 	};
 
@@ -198,7 +212,7 @@ int main(int argc, char **argv) {
 				break;
 
 			case 'T': //tp
-				rds_params.tp = (uint8_t)strtoul(optarg, NULL, 10);
+				rds_params.tp = (uint8_t)strtoul(optarg, NULL, 10) & 1;
 				break;
 
 			case 'A': //af
@@ -217,6 +231,10 @@ int main(int argc, char **argv) {
 			case 'C': //ctl
 				strncpy(control_pipe, optarg, 50);
 				break;
+
+			case 'v': // version
+				show_version();
+				return 0;
 
 			case 'h': //help
 			case '?':
