@@ -18,33 +18,38 @@
 
 // context for MPX oscillator
 typedef struct osc_t {
+	/* the sample rate at which the oscillator operates */
+	uint32_t sample_rate;
+
 	/*
-	 * number of freqs the struct will store waveforms for
+	 * frequency for this instance
 	 *
 	 */
-	uint8_t num_freqs;
+	float freq;
 
 	/*
 	 * Arrays of carrier wave constants
 	 *
 	 */
-	float **sine_waves;
-	float **cosine_waves;
+	float *sin_wave;
+	float *cos_wave;
 
 	/*
 	 * Wave phase
 	 *
 	 */
-	uint16_t **phases;
+	uint16_t *phases;
 } osc_t;
 
-// oscillator phase index
+/* oscillator phase index */
 enum osc_phase_index {
 	CURRENT,
 	MAX
 };
 
-extern void init_osc(struct osc_t *osc_ctx, uint32_t sample_rate, const float *c_freqs);
-extern float get_wave(struct osc_t *osc_ctx, uint8_t num, uint8_t cosine);
-extern void update_osc_phase(struct osc_t *osc_ctx);
-extern void exit_osc(struct osc_t *osc_ctx);
+extern void osc_init(struct osc_t *osc_ctx, uint32_t sample_rate,
+	const float freq);
+extern float osc_get_sin_wave(struct osc_t *osc_ctx);
+extern float osc_get_cos_wave(struct osc_t *osc_ctx);
+extern void osc_update_phase(struct osc_t *osc_ctx);
+extern void osc_exit(struct osc_t *osc_ctx);

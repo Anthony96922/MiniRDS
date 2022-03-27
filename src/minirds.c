@@ -33,7 +33,8 @@ static void stop() {
 	stop_rds = 1;
 }
 
-static inline void float2char2channel(float *inbuf, char *outbuf, size_t frames) {
+static inline void float2char2channel(
+	float *inbuf, char *outbuf, size_t frames) {
 	uint16_t j = 0, k = 0;
 	int16_t sample;
 	int8_t lower, upper;
@@ -182,9 +183,9 @@ int main(int argc, char **argv) {
 
 	memset(control_pipe, 0, 51);
 	memset(callsign, 0, 5);
-	memset(ps, 0, PS_LENGTH+1);
-	memset(rt, 0, RT_LENGTH+1);
-	memset(ptyn, 0, PTYN_LENGTH+1);
+	memset(ps, 0, PS_LENGTH + 1);
+	memset(rt, 0, RT_LENGTH + 1);
+	memset(ptyn, 0, PTYN_LENGTH + 1);
 
 	while ((opt = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
 		switch (opt) {
@@ -208,11 +209,11 @@ int main(int argc, char **argv) {
 				break;
 
 			case 'p': //pty
-				rds_params.pty = (uint8_t)strtoul(optarg, NULL, 10);
+				rds_params.pty = strtoul(optarg, NULL, 10) & 31;
 				break;
 
 			case 'T': //tp
-				rds_params.tp = (uint8_t)strtoul(optarg, NULL, 10) & 1;
+				rds_params.tp = strtoul(optarg, NULL, 10) & 1;
 				break;
 
 			case 'A': //af
@@ -285,7 +286,8 @@ int main(int argc, char **argv) {
 	memset(&src_data, 0, sizeof(SRC_DATA));
 	src_data.input_frames = NUM_MPX_FRAMES_IN;
 	src_data.output_frames = NUM_MPX_FRAMES_OUT;
-	src_data.src_ratio = (double)OUTPUT_SAMPLE_RATE / (double)MPX_SAMPLE_RATE;
+	src_data.src_ratio =
+		(double)OUTPUT_SAMPLE_RATE / (double)MPX_SAMPLE_RATE;
 	src_data.data_in = mpx_buffer;
 	src_data.data_out = out_buffer;
 

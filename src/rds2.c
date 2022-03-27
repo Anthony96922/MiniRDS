@@ -37,7 +37,12 @@ extern unsigned int station_logo_len;
  * Station logo group (not fully implemented)
  * See https://www.youtube.com/watch?v=ticcJpCPoa8
  */
-static void get_logo_group(uint16_t *blocks) {
+
+/*
+ * Radio Packet Protocol
+ *
+ */
+static void get_rpp_group(uint16_t *blocks) {
 	/*
 	 * Function Header
 	 *
@@ -47,11 +52,14 @@ static void get_logo_group(uint16_t *blocks) {
 	static uint8_t fh = 8 << 4 | 1 << 3 /* group 8B? */ | 0;
 	static uint16_t logo_pos;
 
-	blocks[0] |= fh << 8 | station_logo[logo_pos];
-	blocks[1] = station_logo[logo_pos+1] << 8 | station_logo[logo_pos+2];
-	blocks[2] = station_logo[logo_pos+3] << 8 | station_logo[logo_pos+4];
-	blocks[3] = station_logo[logo_pos+5] << 8 | station_logo[logo_pos+6];
-	if ((logo_pos += 7) >= station_logo_len) logo_pos = 0;
+	/* goup header */
+	blocks[0] |= fh << 8 | 0 /* mystery byte */;
+
+	/* image data */
+	blocks[1] = station_logo[logo_pos+0] << 8 | station_logo[logo_pos+1];
+	blocks[2] = station_logo[logo_pos+2] << 8 | station_logo[logo_pos+3];
+	blocks[3] = station_logo[logo_pos+4] << 8 | station_logo[logo_pos+5];
+	if ((logo_pos += 6) >= station_logo_len) logo_pos = 0;
 }
 
 /*
@@ -62,12 +70,13 @@ static void get_rds2_group(int stream_num, uint16_t *blocks) {
 	case 0:
 	case 1:
 	case 2:
-		get_logo_group(blocks);
+	default:
+		get_rpp_group(blocks);
 		break;
 	}
 
-	//fprintf(stderr, "Stream %u: %04x %04x %04x %04x\n",
-	//	stream_num, blocks[0], blocks[1], blocks[2], blocks[3]);
+	fprintf(stderr, "Stream %u: %04x %04x %04x %04x\n",
+		stream_num, blocks[0], blocks[1], blocks[2], blocks[3]);
 }
 
 void get_rds2_bits(uint8_t stream, uint8_t *bits) {

@@ -27,36 +27,20 @@
 
 static float mpx_vol;
 
-// MPX carrier index
-enum mpx_carrier_index {
-	CARRIER_19K,
-	CARRIER_57K,
-#ifdef RDS2
-	CARRIER_67K,
-	CARRIER_71K,
-	CARRIER_76K,
-#endif
-};
-
-static const float carrier_frequencies[] = {
-	19000.0, // pilot tone
-	57000.0, // RDS
-
-#ifdef RDS2
-	// RDS 2
-	66500.0, // stream 1
-	71250.0, // stream 2
-	76000.0, // stream 2
-#endif
-	0.0 // terminator
-};
-
 /*
- * Local cscillator object
+ * Local oscillator objects
  * this is where the MPX waveforms are stored
  *
  */
-static struct osc_t mpx_osc;
+static osc_t osc_19k;
+static osc_t osc_57k;
+
+#ifdef RDS2
+static osc_t osc_67k;
+//static osc_t osc_71k;
+//static osc_t osc_76k;
+#endif
+
 
 void set_output_volume(uint8_t vol) {
 	if (vol > 100) vol = 100;
@@ -86,7 +70,15 @@ void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
 }
 
 void fm_mpx_init(uint32_t sample_rate) {
-	init_osc(&mpx_osc, sample_rate, carrier_frequencies);
+	/* initialize the subcarrier oscillators */
+	osc_init(&osc_19k, sample_rate, 19000.0f);
+	osc_init(&osc_57k, sample_rate, 57000.0f);
+
+#ifdef RDS2
+	osc_init(&osc_67k, sample_rate, 66500.0f);
+	//osc_init(&osc_71k, sample_rate, 71250.0f);
+	//osc_init(&osc_76k, sample_rate, 76000.0f);
+#endif
 }
 
 void fm_rds_get_frames(float *outbuf, size_t num_frames) {
@@ -97,16 +89,22 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		out = 0.0f;
 
 		// Pilot tone for calibration
-		out += get_wave(&mpx_osc, CARRIER_19K, 1) * volumes[0];
+		out += osc_get_cos_wave(&osc_19k) * volumes[0];
 
-		out += get_wave(&mpx_osc, CARRIER_57K, 1) * get_rds_sample(0) * volumes[1];
+		out += osc_get_cos_wave(&osc_57k) * get_rds_sample(0) * volumes[1];
 #ifdef RDS2
-		out += get_wave(&mpx_osc, CARRIER_67K, 1) * get_rds_sample(1) * volumes[2];
-		out += get_wave(&mpx_osc, CARRIER_71K, 1) * get_rds_sample(2) * volumes[3];
-		out += get_wave(&mpx_osc, CARRIER_76K, 1) * get_rds_sample(3) * volumes[4];
+		out += osc_get_cos_wave(&osc_67k) * get_rds_sample(1) * volumes[2];
+		//out += osc_get_cos_wave(&osc_71k) * get_rds_sample(2) * volumes[3];
+		//out += osc_get_cos_wave(&osc_76k) * get_rds_sample(3) * volumes[4];
 #endif
 
-		update_osc_phase(&mpx_osc);
+		osc_update_phase(&osc_19k);
+		osc_update_phase(&osc_57k);
+#ifdef RDS2
+		osc_update_phase(&osc_67k);
+		//osc_update_phase(&osc_71k);
+		//osc_update_phase(&osc_76k);
+#endif
 
 		outbuf[j+0] = outbuf[j+1] = out * mpx_vol;
 		j += 2;
@@ -115,5 +113,11 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 }
 
 void fm_mpx_exit() {
-	exit_osc(&mpx_osc);
+	osc_exit(&osc_19k);
+	osc_exit(&osc_57k);
+#ifdef RDS2
+	osc_exit(&osc_67k);
+	//osc_exit(&osc_71k);
+	//osc_exit(&osc_76k);
+#endif
 }

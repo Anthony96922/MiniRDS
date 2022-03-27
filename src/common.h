@@ -24,4 +24,11 @@
 #include <string.h>
 #include <math.h>
 
-#define M_2PI M_PI * 2.0
+/* workaround for missing pi definition */
+#ifndef M_PI
+#define M_PI	3.14159265358979323846
+#endif
+
+#define M_2PI	(M_PI * 2.0)
+
+extern void usleep(unsigned int us);

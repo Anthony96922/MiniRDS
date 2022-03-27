@@ -364,13 +364,13 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 		}
 	}
 
-	fprintf(stderr, "RDS Options:\n");
-	fprintf(stderr, "PI: %04X, PS: \"%s\", PTY: %u (%s), TP: %u\n",
+	fprintf(stderr, "RDS Options\n");
+	fprintf(stderr, "PI: %04X, PS: \"%s\", PTY: %u (%s), TP: %s\n",
 		rds_params.pi,
 		rds_params.ps,
 		rds_params.pty,
 		get_pty(region, rds_params.pty),
-		rds_params.tp);
+		rds_params.tp ? "ON" : "OFF");
 	fprintf(stderr, "RT: \"%s\"\n", rds_params.rt);
 
 	// AF

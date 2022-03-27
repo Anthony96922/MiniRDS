@@ -64,85 +64,64 @@ static void create_wave(uint32_t rate, float freq,
  * Create waveform lookup tables for frequencies in the array
  *
  */
-void init_osc(struct osc_t *osc_ctx,
-		uint32_t sample_rate, const float *c_freqs) {
+void osc_init(struct osc_t *osc_ctx, uint32_t sample_rate, const float freq) {
 
-	osc_ctx->num_freqs = 0;
-
-	// look for the 0 terminator
-	for (;;) {
-		if (c_freqs[osc_ctx->num_freqs] == 0.0) break;
-		osc_ctx->num_freqs++;
-	}
+	osc_ctx->sample_rate = sample_rate;
 
 	/*
 	 * waveform tables
 	 *
-	 * first index is wave frequency
-	 * second index is wave data
+	 * cosine and sine
 	 */
-	osc_ctx->sine_waves = malloc(osc_ctx->num_freqs * sizeof(float));
-	osc_ctx->cosine_waves = malloc(osc_ctx->num_freqs * sizeof(float));
+	osc_ctx->sin_wave = malloc(osc_ctx->sample_rate * sizeof(float));
+	osc_ctx->cos_wave = malloc(osc_ctx->sample_rate * sizeof(float));
 
 	/*
 	 * phase table
 	 *
 	 * current and max
 	 */
-	osc_ctx->phases = malloc(osc_ctx->num_freqs * 2 * sizeof(uint16_t));
+	osc_ctx->phases = malloc(2 * sizeof(uint16_t));
 
-	for (uint8_t i = 0; i < osc_ctx->num_freqs; i++) {
-		osc_ctx->sine_waves[i] = malloc(sample_rate * sizeof(float));
-		osc_ctx->cosine_waves[i] = malloc(sample_rate * sizeof(float));
-		osc_ctx->phases[i] = malloc(2 * sizeof(uint16_t));
-		osc_ctx->phases[i][CURRENT] = 0;
+	osc_ctx->phases[CURRENT] = 0;
 
-		// create waveform data and load into lookup tables
-		create_wave(sample_rate, c_freqs[i],
-			osc_ctx->sine_waves[i],
-			osc_ctx->cosine_waves[i],
-			&osc_ctx->phases[i][MAX]
-		);
-	}
+	/* create waveform data and load into lookup tables */
+	create_wave(osc_ctx->sample_rate, freq,
+		osc_ctx->sin_wave, osc_ctx->cos_wave,
+		&osc_ctx->phases[MAX]);
 }
 
 /*
- * Get a waveform sample for a given frequency
+ * Get a single waveform sample
  *
  * Cosine is needed for SSB generation
  *
  */
-float get_wave(struct osc_t *osc_ctx, uint8_t waveform_num, uint8_t cosine) {
-	uint16_t cur_phase = osc_ctx->phases[waveform_num][CURRENT];
-	if (cosine) {
-		return osc_ctx->cosine_waves[waveform_num][cur_phase];
-	} else {
-		return osc_ctx->sine_waves[waveform_num][cur_phase];
-	}
+float osc_get_cos_wave(struct osc_t *osc_ctx) {
+	uint16_t cur_phase = osc_ctx->phases[CURRENT];
+	return osc_ctx->cos_wave[cur_phase];
+}
+
+float osc_get_sin_wave(struct osc_t *osc_ctx) {
+	uint16_t cur_phase = osc_ctx->phases[CURRENT];
+	return osc_ctx->sin_wave[cur_phase];
 }
 
 /*
  * Shift the oscillator to the next phase
  *
  */
-void update_osc_phase(struct osc_t *osc_ctx) {
-	for (uint8_t i = 0; i < osc_ctx->num_freqs; i++) {
-		if (++osc_ctx->phases[i][CURRENT] == osc_ctx->phases[i][MAX])
-			osc_ctx->phases[i][CURRENT] = 0;
-	}
+void osc_update_phase(struct osc_t *osc_ctx) {
+	if (++osc_ctx->phases[CURRENT] == osc_ctx->phases[MAX])
+		osc_ctx->phases[CURRENT] = 0;
 }
 
 /*
- * Unload all waveform and phase tables
+ * Unload waveform and phase tables
  *
  */
-void exit_osc(struct osc_t *osc_ctx) {
-	for (uint8_t i = 0; i < osc_ctx->num_freqs; i++) {
-		free(osc_ctx->sine_waves[i]);
-		free(osc_ctx->cosine_waves[i]);
-		free(osc_ctx->phases[i]);
-	}
-	free(osc_ctx->sine_waves);
-	free(osc_ctx->cosine_waves);
+void osc_exit(struct osc_t *osc_ctx) {
+	free(osc_ctx->sin_wave);
+	free(osc_ctx->cos_wave);
 	free(osc_ctx->phases);
 }

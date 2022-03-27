@@ -6,10 +6,10 @@ name = minirds
 VERSION=1.0
 
 # change to "1" to enable RDS2 capabilities (don't forget to run "make clean" first)
-RDS2 = 0
+RDS2 = 1
 
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -O2 -std=gnu99
+CFLAGS = -Wall -Wextra -pedantic -O2 -std=c11
 
 CFLAGS += -DVERSION=\"$(VERSION)\"
 

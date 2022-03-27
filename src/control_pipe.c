@@ -18,6 +18,7 @@
 
 #include "common.h"
 #include <fcntl.h>
+#include <poll.h>
 
 #include "rds.h"
 #include "fm_mpx.h"
@@ -25,24 +26,22 @@
 //#define CONTROL_PIPE_MESSAGES
 
 #define CTL_BUFFER_SIZE 100
+#define READ_TIMEOUT_MS	1000
 
-static FILE *f_ctl;
+static int fd;
+static struct pollfd poller;
 
 /*
  * Opens a file (pipe) to be used to control the RDS coder, in non-blocking mode.
  */
 
 int open_control_pipe(char *filename) {
-	int fd, flags;
-
 	fd = open(filename, O_RDONLY | O_NONBLOCK);
 	if (fd == -1) return -1;
 
-	flags = fcntl(fd, F_GETFL, 0) | O_NONBLOCK;
-	if (fcntl(fd, F_SETFL, flags) == -1) return -1;
-
-	f_ctl = fdopen(fd, "r");
-	if (f_ctl == NULL) return -1;
+	/* setup the poller */
+	poller.fd = fd;
+	poller.events = POLLIN | POLLPRI;
 
 	return 0;
 }
@@ -54,45 +53,53 @@ int open_control_pipe(char *filename) {
  */
 void poll_control_pipe() {
 	static char buf[CTL_BUFFER_SIZE];
-	char *res;
+	int res;
 	char *arg;
 	uint8_t arg_len;
 
-	res = fgets(buf, CTL_BUFFER_SIZE, f_ctl);
-	if (res == NULL) return;
+	/* check for new commands */
+	res = poll(&poller, 1, READ_TIMEOUT_MS);
+	if (res <= 0) return;
 
-	if (strlen(res) > 3 && res[2] == ' ') {
-		arg = res + 3;
+	if (!(poller.revents & (POLLIN | POLLPRI))) return;
+
+	memset(buf, 0, CTL_BUFFER_SIZE);
+
+	res = read(fd, buf, CTL_BUFFER_SIZE);
+	if (res < 0) return;
+
+	if (strlen(buf) > 3 && buf[2] == ' ') {
+		arg = buf + 3;
 		arg_len = strlen(arg);
 
 		if (arg[arg_len-1] == '\n') arg[arg_len-1] = 0;
 
-		if (strncmp(res, "PI", 2) == 0) {
+		if (strncmp(buf, "PI", 2) == 0) {
 			arg[4] = 0;
-			uint16_t pi = strtoul(arg, NULL, 16);
+			uint16_t pi = strtoul(arg, NULL, 16) & 65535;
 			set_rds_pi(pi);
 #ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "PI set to: \"%04X\"\n", pi);
+			fprintf(stderr, "PI set to \"%04X\"\n", pi);
 #endif
 			return;
 		}
-		if (strncmp(res, "PS", 2) == 0) {
+		if (strncmp(buf, "PS", 2) == 0) {
 			arg[8] = 0;
 			set_rds_ps(arg);
 #ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "PS set to: \"%s\"\n", arg);
+			fprintf(stderr, "PS set to \"%s\"\n", arg);
 #endif
 			return;
 		}
-		if (strncmp(res, "RT", 2) == 0) {
+		if (strncmp(buf, "RT", 2) == 0) {
 			arg[64] = 0;
 			set_rds_rt(arg);
 #ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "RT set to: \"%s\"\n", arg);
+			fprintf(stderr, "RT set to \"%s\"\n", arg);
 #endif
 			return;
 		}
-		if (strncmp(res, "TA", 2) == 0) {
+		if (strncmp(buf, "TA", 2) == 0) {
 			uint8_t ta = arg[0] == '1' ? 1 : 0;
 			set_rds_ta(ta);
 #ifdef CONTROL_PIPE_MESSAGES
@@ -100,7 +107,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(res, "TP", 2) == 0) {
+		if (strncmp(buf, "TP", 2) == 0) {
 			uint8_t tp = arg[0] == '1' ? 1 : 0;
 			set_rds_tp(tp);
 #ifdef CONTROL_PIPE_MESSAGES
@@ -108,7 +115,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(res, "MS", 2) == 0) {
+		if (strncmp(buf, "MS", 2) == 0) {
 			uint8_t ms = arg[0] == '1' ? 1 : 0;
 			set_rds_ms(ms);
 #ifdef CONTROL_PIPE_MESSAGES
@@ -116,9 +123,9 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(res, "DI", 2) == 0) {
+		if (strncmp(buf, "DI", 2) == 0) {
 			arg[1] = 0;
-			uint8_t di = strtoul(arg, NULL, 10);
+			uint8_t di = strtoul(arg, NULL, 10) & 7;
 			set_rds_di(di);
 #ifdef CONTROL_PIPE_MESSAGES
 			fprintf(stderr, "DI value set to %u\n", di);
@@ -127,34 +134,32 @@ void poll_control_pipe() {
 		}
 	}
 
-	if (strlen(res) > 4 && res[3] == ' ') {
-		arg = res + 4;
+	if (strlen(buf) > 4 && buf[3] == ' ') {
+		arg = buf + 4;
 		arg_len = strlen(arg);
 
 		if (arg[arg_len-1] == '\n') arg[arg_len-1] = 0;
 
-		if (strncmp(res, "PTY", 3) == 0) {
-			uint8_t pty = strtoul(arg, NULL, 10);
-			if (pty <= 31) {
-				set_rds_pty(pty);
+		if (strncmp(buf, "PTY", 3) == 0) {
+			uint8_t pty = strtoul(arg, NULL, 10) & 31;
+			set_rds_pty(pty);
 #ifdef CONTROL_PIPE_MESSAGES
-				if (!pty) {
-					fprintf(stderr, "PTY disabled\n");
-				} else {
-					fprintf(stderr, "PTY set to %u\n", pty);
-				}
-			} else {
-				fprintf(stderr, "Invalid PTY\n");
+			fprintf(stderr, "PTY set to %u\n", pty);
 #endif
-			}
 			return;
 		}
-		if (strncmp(res, "RTP", 2) == 0) {
+		if (strncmp(buf, "RTP", 2) == 0) {
 			uint8_t tags[8];
-			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu", &tags[0], &tags[1], &tags[2], &tags[3], &tags[4], &tags[5]) == 6) {
+			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
+				&tags[0], &tags[1], &tags[2], &tags[3],
+				&tags[4], &tags[5]
+			) == 6) {
 #ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "RT+ tag 1: type: %u, start: %u, length: %u\n", tags[0], tags[1], tags[2]);
-				fprintf(stderr, "RT+ tag 2: type: %u, start: %u, length: %u\n", tags[3], tags[4], tags[5]);
+				for (uint8_t i = 0; i < 2; i++) {
+					fprintf(stderr,
+						"RT+ tag %u: type: %u, start: %u, length: %u\n",
+						i, tags[i*3+0], tags[i*3+1], tags[i*3+2]);
+				}
 #endif
 				set_rds_rtplus_tags(tags);
 			}
@@ -165,29 +170,29 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(res, "MPX", 2) == 0) {
+		if (strncmp(buf, "MPX", 2) == 0) {
 			uint8_t gains[5];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu", &gains[0], &gains[1], &gains[2], &gains[3], &gains[4]) == 5) {
-				for (int i = 0; i < 5; i++) {
+				for (uint8_t i = 0; i < 5; i++) {
 					set_carrier_volume(i, gains[i]);
 				}
 			}
 			return;
 		}
-		if (strncmp(res, "VOL", 2) == 0) {
+		if (strncmp(buf, "VOL", 2) == 0) {
 			arg[4] = 0;
 			set_output_volume(strtoul(arg, NULL, 10));
 			return;
 		}
 	}
 
-	if (strlen(res) > 5 && res[4] == ' ') {
-		arg = res + 5;
+	if (strlen(buf) > 5 && buf[4] == ' ') {
+		arg = buf + 5;
 		arg_len = strlen(arg);
 
 		if (arg[arg_len-1] == '\n') arg[arg_len-1] = 0;
 
-		if (strncmp(res, "RTPF", 2) == 0) {
+		if (strncmp(buf, "RTPF", 2) == 0) {
 			uint8_t rtp_flags[2];
 			if (sscanf(arg, "%hhu,%hhu", &rtp_flags[0], &rtp_flags[1]) == 2) {
 #ifdef CONTROL_PIPE_MESSAGES
@@ -202,7 +207,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(res, "PTYN", 2) == 0) {
+		if (strncmp(buf, "PTYN", 2) == 0) {
 			arg[8] = 0;
 			if (arg[0] == '-') {
 #ifdef CONTROL_PIPE_MESSAGES
@@ -213,7 +218,7 @@ void poll_control_pipe() {
 				set_rds_ptyn(tmp);
 			} else {
 #ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "PTYN set to: \"%s\"\n", arg);
+				fprintf(stderr, "PTYN set to \"%s\"\n", arg);
 #endif
 				set_rds_ptyn(arg);
 			}
@@ -223,5 +228,5 @@ void poll_control_pipe() {
 }
 
 void close_control_pipe() {
-	if (f_ctl) fclose(f_ctl);
+	if (fd > 0) close(fd);
 }
