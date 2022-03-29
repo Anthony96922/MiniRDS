@@ -40,7 +40,7 @@ static inline void float2char2channel(
 	int8_t lower, upper;
 
 	for (uint16_t i = 0; i < frames; i++) {
-		sample = lroundf((inbuf[j] + inbuf[j+1]) * 16383.5f);
+		sample = lroundf((float)(inbuf[j] + inbuf[j+1]) * 16383.5f);
 
 		// convert from short to char
 		lower = sample & 255;
@@ -62,7 +62,7 @@ static inline void float2char2channel(
 static void *control_pipe_worker() {
 	while (!stop_rds) {
 		poll_control_pipe();
-		usleep(10000);
+		sleep(1);
 	}
 
 	close_control_pipe();

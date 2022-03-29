@@ -5,7 +5,8 @@ name = minirds
 # version
 VERSION=1.0
 
-# change to "1" to enable RDS2 capabilities (don't forget to run "make clean" first)
+# change to "1" to enable RDS2 capabilities
+# (don't forget to run "make clean" first)
 RDS2 = 1
 
 CC = gcc
@@ -13,7 +14,7 @@ CFLAGS = -Wall -Wextra -pedantic -O2 -std=c11
 
 CFLAGS += -DVERSION=\"$(VERSION)\"
 
-obj = $(name).o rds.o waveforms.o fm_mpx.o control_pipe.o osc.o \
+obj = minirds.o rds.o waveforms.o fm_mpx.o control_pipe.o osc.o \
 	resampler.o modulator.o lib.o
 libs = -lm -lsamplerate -lpthread -lao
 

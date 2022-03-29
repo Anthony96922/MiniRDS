@@ -26,7 +26,7 @@
 //#define CONTROL_PIPE_MESSAGES
 
 #define CTL_BUFFER_SIZE 100
-#define READ_TIMEOUT_MS	1000
+#define READ_TIMEOUT_MS	100
 
 static int fd;
 static struct pollfd poller;
@@ -36,7 +36,7 @@ static struct pollfd poller;
  */
 
 int open_control_pipe(char *filename) {
-	fd = open(filename, O_RDONLY | O_NONBLOCK);
+	fd = open(filename, O_RDONLY);
 	if (fd == -1) return -1;
 
 	/* setup the poller */
@@ -53,20 +53,15 @@ int open_control_pipe(char *filename) {
  */
 void poll_control_pipe() {
 	static char buf[CTL_BUFFER_SIZE];
-	int res;
 	char *arg;
 	uint8_t arg_len;
 
 	/* check for new commands */
-	res = poll(&poller, 1, READ_TIMEOUT_MS);
-	if (res <= 0) return;
-
-	if (!(poller.revents & (POLLIN | POLLPRI))) return;
+	if (poll(&poller, 1, READ_TIMEOUT_MS) <= 0) return;
+	if ((poller.revents & poller.events) == 0) return;
 
 	memset(buf, 0, CTL_BUFFER_SIZE);
-
-	res = read(fd, buf, CTL_BUFFER_SIZE);
-	if (res < 0) return;
+	read(fd, buf, CTL_BUFFER_SIZE);
 
 	if (strlen(buf) > 3 && buf[2] == ' ') {
 		arg = buf + 3;

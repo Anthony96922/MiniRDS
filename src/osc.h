@@ -38,18 +38,13 @@ typedef struct osc_t {
 	 * Wave phase
 	 *
 	 */
-	uint16_t *phases;
+	uint16_t cur;
+	uint16_t max;
 } osc_t;
-
-/* oscillator phase index */
-enum osc_phase_index {
-	CURRENT,
-	MAX
-};
 
 extern void osc_init(struct osc_t *osc_ctx, uint32_t sample_rate,
 	const float freq);
-extern float osc_get_sin_wave(struct osc_t *osc_ctx);
-extern float osc_get_cos_wave(struct osc_t *osc_ctx);
-extern void osc_update_phase(struct osc_t *osc_ctx);
+extern float osc_get_sin(struct osc_t *osc_ctx);
+extern float osc_get_cos(struct osc_t *osc_ctx);
+extern void osc_update_pos(struct osc_t *osc_ctx);
 extern void osc_exit(struct osc_t *osc_ctx);
