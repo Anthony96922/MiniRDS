@@ -395,12 +395,12 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	// Assign the RT+ AID to group 11A
 	init_rtplus(GROUP_11A);
 
-	// initialize signal
-	init_symbol_waveforms();
+	/* initialize modulator objects */
+	init_rds_objects();
 }
 
 void exit_rds_encoder() {
-	exit_symbol_waveforms();
+	exit_rds_objects();
 }
 
 void set_rds_pi(uint16_t pi_code) {

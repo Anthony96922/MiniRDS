@@ -16,14 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// MPX
+/* MPX */
 #define NUM_MPX_FRAMES_IN	128
 #define NUM_MPX_FRAMES_OUT	(NUM_MPX_FRAMES_IN * 2)
 
-// The sample rate at which the MPX generation runs at
+/*
+ * The sample rate at which the MPX generation runs at
+ */
 #define MPX_SAMPLE_RATE		190000
 
 #define OUTPUT_SAMPLE_RATE	192000
+
+#ifdef RDS2
+#define NUM_SUBCARRIERS		5
+#else
+#define NUM_SUBCARRIERS		1
+#endif
 
 extern void fm_mpx_init(uint32_t sample_rate);
 extern void fm_rds_get_frames(float *outbuf, size_t num_frames);

@@ -18,11 +18,11 @@
 
 #include "rds.h"
 
-// RDS signal context
+/* RDS signal context */
 typedef struct rds_context {
-	uint8_t bit_buffer[BITS_PER_GROUP];
+	uint8_t *bit_buffer; /* BITS_PER_GROUP */
 	uint8_t bit_pos;
-	float sample_buffer[SAMPLE_BUFFER_SIZE];
+	float *sample_buffer; /* SAMPLE_BUFFER_SIZE */
 	uint8_t prev_output;
 	uint8_t cur_output;
 	uint8_t cur_bit;
@@ -30,8 +30,7 @@ typedef struct rds_context {
 	uint16_t in_sample_index;
 	uint16_t out_sample_index;
 	float sample_pos;
-	float sample;
 } rds_context;
 
-extern void init_symbol_waveforms();
-extern void exit_symbol_waveforms();
+extern void init_rds_objects();
+extern void exit_rds_objects();

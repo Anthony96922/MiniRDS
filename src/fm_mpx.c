@@ -25,8 +25,6 @@
 #include "fm_mpx.h"
 #include "osc.h"
 
-static float mpx_vol;
-
 /*
  * Local oscillator objects
  * this is where the MPX waveforms are stored
@@ -40,6 +38,7 @@ static struct osc_t osc_71k;
 static struct osc_t osc_76k;
 #endif
 
+static float mpx_vol;
 
 void set_output_volume(uint8_t vol) {
 	if (vol > 100) vol = 100;
@@ -48,21 +47,17 @@ void set_output_volume(uint8_t vol) {
 
 // subcarrier volumes
 static float volumes[] = {
-	0.09, // pilot tone: 9% modulation
-	0.09, // RDS: 4.5% modulation
+	0.09f, // pilot tone: 9% modulation
+	0.09f, // RDS: 4.5% modulation
 #ifdef RDS2
-	0.09, // RDS 2
-	0.09,
-	0.09
+	0.09f, // RDS 2
+	0.09f,
+	0.09f
 #endif
 };
 
 void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
-#ifdef RDS2
-	if (carrier > 4) return;
-#else
-	if (carrier > 1) return;
-#endif
+	if (carrier > NUM_SUBCARRIERS) return;
 	if (new_volume >= 15) volumes[carrier] = 0.09f;
 	volumes[carrier] = (float)new_volume / 100.0f;
 }
@@ -97,6 +92,7 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 #endif
 #endif
 
+		/* update oscillator */
 		osc_update_pos(&osc_19k);
 		osc_update_pos(&osc_57k);
 #ifdef RDS2
@@ -105,6 +101,11 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		osc_update_pos(&osc_76k);
 #endif
 
+		/* clipper */
+		out = fminf(+1.0f, out);
+		out = fmaxf(-1.0f, out);
+
+		/* put into both channels and adjust volume */
 		outbuf[j+0] = outbuf[j+1] = out * mpx_vol;
 		j += 2;
 

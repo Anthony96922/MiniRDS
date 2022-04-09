@@ -17,45 +17,49 @@
  */
 
 #include "common.h"
+#include "rds.h"
 #ifdef RDS2
 #include "rds2.h"
 #endif
 #include "fm_mpx.h"
-#include "waveforms.h"
+#include "rds_waveform.h"
 #include "modulator.h"
 
-static float **sym_waveforms;
+static struct rds_context **rds_contexts;
 
 /*
- * Also create the inverted version of the symbol waveform
+ * Create the RDS objects
+ *
  */
-void init_symbol_waveforms() {
-	sym_waveforms = malloc(2 * sizeof(float));
-	for (uint8_t i = 0; i < 2; i++) {
-		sym_waveforms[i] = malloc(FILTER_SIZE * sizeof(float));
-		for (uint16_t j = 0; j < FILTER_SIZE; j++) {
-			sym_waveforms[i][j] = (i) ?
-				+waveform_biphase[j] : -waveform_biphase[j];
-		}
+void init_rds_objects() {
+	rds_contexts = malloc(4 * sizeof(struct rds_context));
+
+	for (uint8_t i = 0; i < 4; i++) {
+		rds_contexts[i] = malloc(sizeof(struct rds_context));
+		rds_contexts[i]->bit_buffer = malloc(BITS_PER_GROUP);
+		rds_contexts[i]->sample_buffer =
+			malloc(SAMPLE_BUFFER_SIZE * sizeof(float));
 	}
 }
 
-void exit_symbol_waveforms() {
-	for (uint8_t i = 0; i < 2; i++) {
-		free(sym_waveforms[i]);
+void exit_rds_objects() {
+	for (uint8_t i = 0; i < 4; i++) {
+		free(rds_contexts[i]->sample_buffer);
+		free(rds_contexts[i]->bit_buffer);
+		free(rds_contexts[i]);
 	}
-	free(sym_waveforms);
-}
 
-static struct rds_context rds_contexts[4];
+	free(rds_contexts);
+}
 
 /* Get an RDS sample. This generates the envelope of the waveform using
  * pre-generated elementary waveform samples.
  */
 float get_rds_sample(uint8_t stream_num) {
-	struct rds_context *rds = &rds_contexts[stream_num];
+	struct rds_context *rds = rds_contexts[stream_num];
 	uint16_t idx;
 	float *cur_waveform;
+	float sample;
 
 	if (rds->sample_count == SAMPLES_PER_BIT) {
 		if (rds->bit_pos == BITS_PER_GROUP) {
@@ -71,13 +75,13 @@ float get_rds_sample(uint8_t stream_num) {
 			rds->bit_pos = 0;
 		}
 
-		// do differential encoding
+		/* do differential encoding */
 		rds->cur_bit = rds->bit_buffer[rds->bit_pos++];
 		rds->prev_output = rds->cur_output;
 		rds->cur_output = rds->prev_output ^ rds->cur_bit;
 
 		idx = rds->in_sample_index;
-		cur_waveform = sym_waveforms[rds->cur_output];
+		cur_waveform = biphase_waveform[rds->cur_output];
 
 		for (uint16_t i = 0; i < FILTER_SIZE; i++) {
 			rds->sample_buffer[idx++] += *cur_waveform++;
@@ -92,10 +96,10 @@ float get_rds_sample(uint8_t stream_num) {
 	}
 	rds->sample_count++;
 
-	rds->sample = rds->sample_buffer[rds->out_sample_index];
+	sample = rds->sample_buffer[rds->out_sample_index];
 	rds->sample_buffer[rds->out_sample_index++] = 0;
 	if (rds->out_sample_index == SAMPLE_BUFFER_SIZE)
 		rds->out_sample_index = 0;
 
-	return rds->sample;
+	return sample;
 }

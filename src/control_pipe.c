@@ -143,7 +143,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(buf, "RTP", 2) == 0) {
+		if (strncmp(buf, "RTP", 3) == 0) {
 			uint8_t tags[8];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
@@ -165,7 +165,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(buf, "MPX", 2) == 0) {
+		if (strncmp(buf, "MPX", 3) == 0) {
 			uint8_t gains[5];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu", &gains[0], &gains[1], &gains[2], &gains[3], &gains[4]) == 5) {
 				for (uint8_t i = 0; i < 5; i++) {
@@ -174,7 +174,7 @@ void poll_control_pipe() {
 			}
 			return;
 		}
-		if (strncmp(buf, "VOL", 2) == 0) {
+		if (strncmp(buf, "VOL", 3) == 0) {
 			arg[4] = 0;
 			set_output_volume(strtoul(arg, NULL, 10));
 			return;
@@ -187,7 +187,7 @@ void poll_control_pipe() {
 
 		if (arg[arg_len-1] == '\n') arg[arg_len-1] = 0;
 
-		if (strncmp(buf, "RTPF", 2) == 0) {
+		if (strncmp(buf, "RTPF", 4) == 0) {
 			uint8_t rtp_flags[2];
 			if (sscanf(arg, "%hhu,%hhu", &rtp_flags[0], &rtp_flags[1]) == 2) {
 #ifdef CONTROL_PIPE_MESSAGES
@@ -202,7 +202,7 @@ void poll_control_pipe() {
 #endif
 			return;
 		}
-		if (strncmp(buf, "PTYN", 2) == 0) {
+		if (strncmp(buf, "PTYN", 4) == 0) {
 			arg[8] = 0;
 			if (arg[0] == '-') {
 #ifdef CONTROL_PIPE_MESSAGES
