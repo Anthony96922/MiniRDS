@@ -19,7 +19,7 @@
 #include "rds.h"
 
 /* RDS signal context */
-typedef struct rds_context {
+typedef struct rds_t {
 	uint8_t *bit_buffer; /* BITS_PER_GROUP */
 	uint8_t bit_pos;
 	float *sample_buffer; /* SAMPLE_BUFFER_SIZE */
@@ -29,8 +29,7 @@ typedef struct rds_context {
 	uint8_t sample_count;
 	uint16_t in_sample_index;
 	uint16_t out_sample_index;
-	float sample_pos;
-} rds_context;
+} rds_t;
 
 extern void init_rds_objects();
 extern void exit_rds_objects();

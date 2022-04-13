@@ -46,7 +46,6 @@ int open_control_pipe(char *filename) {
 	return 0;
 }
 
-
 /*
  * Polls the control file (pipe), non-blockingly, and if a command is received,
  * processes it and updates the RDS data.
@@ -58,7 +57,9 @@ void poll_control_pipe() {
 
 	/* check for new commands */
 	if (poll(&poller, 1, READ_TIMEOUT_MS) <= 0) return;
-	if ((poller.revents & poller.events) == 0) return;
+
+	/* return early if there are no new commands */
+	if ((poller.revents | poller.events) == 0) return;
 
 	memset(buf, 0, CTL_BUFFER_SIZE);
 	read(fd, buf, CTL_BUFFER_SIZE);

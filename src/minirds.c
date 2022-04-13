@@ -187,63 +187,70 @@ int main(int argc, char **argv) {
 	memset(rt, 0, RT_LENGTH + 1);
 	memset(ptyn, 0, PTYN_LENGTH + 1);
 
-	while ((opt = getopt_long(argc, argv, short_opt, long_opt, NULL)) != -1) {
-		switch (opt) {
-			case 'm': //volume
-				volume = strtoul(optarg, NULL, 10);
-				if (check_mpx_vol(volume) > 0) return 1;
-				break;
+keep_parsing_opts:
 
-			case 'i': //pi
-				rds_params.pi = strtoul(optarg, NULL, 16);
-				break;
+	opt = getopt_long(argc, argv, short_opt, long_opt, NULL);
+	if (opt == -1) goto done_parsing_opts;
 
-			case 's': //ps
-				strncpy(ps, optarg, PS_LENGTH);
-				memcpy(rds_params.ps, ps, PS_LENGTH);
-				break;
+	switch (opt) {
+		case 'm': //volume
+			volume = strtoul(optarg, NULL, 10);
+			if (check_mpx_vol(volume) > 0) return 1;
+			break;
 
-			case 'r': //rt
-				strncpy(rt, optarg, RT_LENGTH);
-				memcpy(rds_params.rt, rt, RT_LENGTH);
-				break;
+		case 'i': //pi
+			rds_params.pi = strtoul(optarg, NULL, 16);
+			break;
 
-			case 'p': //pty
-				rds_params.pty = strtoul(optarg, NULL, 10) & 31;
-				break;
+		case 's': //ps
+			strncpy(ps, optarg, PS_LENGTH);
+			memcpy(rds_params.ps, ps, PS_LENGTH);
+			break;
 
-			case 'T': //tp
-				rds_params.tp = strtoul(optarg, NULL, 10) & 1;
-				break;
+		case 'r': //rt
+			strncpy(rt, optarg, RT_LENGTH);
+			memcpy(rds_params.rt, rt, RT_LENGTH);
+			break;
 
-			case 'A': //af
-				if (add_rds_af(&rds_params.af, strtof(optarg, NULL)) == 1) return 1;
-				break;
+		case 'p': //pty
+			rds_params.pty = strtoul(optarg, NULL, 10) & 31;
+			break;
 
-			case 'P': //ptyn
-				strncpy(ptyn, optarg, PTYN_LENGTH);
-				memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
-				break;
+		case 'T': //tp
+			rds_params.tp = strtoul(optarg, NULL, 10) & 1;
+			break;
 
-			case 'S': //callsign
-				strncpy(callsign, optarg, 4);
-				break;
+		case 'A': //af
+			if (add_rds_af(&rds_params.af, strtof(optarg, NULL)) == 1) return 1;
+			break;
 
-			case 'C': //ctl
-				strncpy(control_pipe, optarg, 50);
-				break;
+		case 'P': //ptyn
+			strncpy(ptyn, optarg, PTYN_LENGTH);
+			memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
+			break;
 
-			case 'v': // version
-				show_version();
-				return 0;
+		case 'S': //callsign
+			strncpy(callsign, optarg, 4);
+			break;
 
-			case 'h': //help
-			case '?':
-			default:
-				show_help(argv[0], rds_params);
-				return 1;
-		}
+		case 'C': //ctl
+			strncpy(control_pipe, optarg, 50);
+			break;
+
+		case 'v': // version
+			show_version();
+			return 0;
+
+		case 'h': //help
+		case '?':
+		default:
+			show_help(argv[0], rds_params);
+			return 1;
 	}
+
+	goto keep_parsing_opts;
+
+done_parsing_opts:
 
 	// Initialize pthread stuff
 	pthread_mutex_init(&control_pipe_mutex, NULL);

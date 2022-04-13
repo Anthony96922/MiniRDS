@@ -25,38 +25,38 @@
 #include "rds_waveform.h"
 #include "modulator.h"
 
-static struct rds_context **rds_contexts;
+static struct rds_t **rds_ctx;
 
 /*
  * Create the RDS objects
  *
  */
 void init_rds_objects() {
-	rds_contexts = malloc(4 * sizeof(struct rds_context));
+	rds_ctx = malloc(4 * sizeof(struct rds_t));
 
 	for (uint8_t i = 0; i < 4; i++) {
-		rds_contexts[i] = malloc(sizeof(struct rds_context));
-		rds_contexts[i]->bit_buffer = malloc(BITS_PER_GROUP);
-		rds_contexts[i]->sample_buffer =
+		rds_ctx[i] = malloc(sizeof(struct rds_t));
+		rds_ctx[i]->bit_buffer = malloc(BITS_PER_GROUP);
+		rds_ctx[i]->sample_buffer =
 			malloc(SAMPLE_BUFFER_SIZE * sizeof(float));
 	}
 }
 
 void exit_rds_objects() {
 	for (uint8_t i = 0; i < 4; i++) {
-		free(rds_contexts[i]->sample_buffer);
-		free(rds_contexts[i]->bit_buffer);
-		free(rds_contexts[i]);
+		free(rds_ctx[i]->sample_buffer);
+		free(rds_ctx[i]->bit_buffer);
+		free(rds_ctx[i]);
 	}
 
-	free(rds_contexts);
+	free(rds_ctx);
 }
 
 /* Get an RDS sample. This generates the envelope of the waveform using
  * pre-generated elementary waveform samples.
  */
 float get_rds_sample(uint8_t stream_num) {
-	struct rds_context *rds = rds_contexts[stream_num];
+	struct rds_t *rds = rds_ctx[stream_num];
 	uint16_t idx;
 	float *cur_waveform;
 	float sample;

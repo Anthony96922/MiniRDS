@@ -56,15 +56,15 @@ char *get_pty(uint8_t region, uint8_t pty) {
 }
 
 static uint16_t offset_words[] = {
-	0x0FC, // A
-	0x198, // B
-	0x168, // C
-	0x1B4, // D
-	0x350  // C'
+	0x0FC, /*  A  */
+	0x198, /*  B  */
+	0x168, /*  C  */
+	0x1B4, /*  D  */
+	0x350  /*  C' */
 };
 
 /* Classical CRC computation */
-static uint16_t crc(uint16_t block) {
+static inline uint16_t crc(uint16_t block) {
 	uint16_t crc = 0;
 
 	for (int j = 0; j < BLOCK_SIZE; j++) {
@@ -75,16 +75,22 @@ static uint16_t crc(uint16_t block) {
 		crc <<= 1;
 		if ((msb ^ bit) != 0) crc ^= POLY;
 	}
+
 	return crc;
 }
 
-// Calculate the checkword for each block and emit the bits
+/* Calculate the checkword for each block and emit the bits */
 void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 	uint16_t block, check, offset_word;
+
 	for (int i = 0; i < GROUP_LENGTH; i++) {
 		block = blocks[i];
 		offset_word = offset_words[i];
-		if (((blocks[1] >> 11) & 1) && i == 3) offset_word = offset_words[5];
+
+		/* RDS2 needs C' */
+		if (i == 3 && ((blocks[1] >> 11) & 1))
+			offset_word = offset_words[4];
+
 		check = crc(block) ^ offset_word;
 		for (int j = 0; j < BLOCK_SIZE; j++) {
 			*bits++ = ((block & (1 << (BLOCK_SIZE - 1))) != 0);
@@ -118,19 +124,22 @@ uint16_t callsign2pi(char *callsign) {
 		return 0;
 	}
 
+	/* Change nibbles to base-26 decimal */
 	pi_code +=
-		// Change nibbles to base-26 decimal
 		(callsign[1] - (callsign[1] >= 'a' ? 0x61 : 0x41)) * 676 +
 		(callsign[2] - (callsign[2] >= 'a' ? 0x61 : 0x41)) * 26 +
 		(callsign[3] - (callsign[3] >= 'a' ? 0x61 : 0x41));
 
-	// Call letter exceptions
-	if ((pi_code & 0x0F00) == 0) { // When 3rd char is 0
+	/* Call letter exceptions */
+
+	/* When 3rd char is 0 */
+	if ((pi_code & 0x0F00) == 0) {
 		pi_code = 0xA000 +
 			((pi_code & 0xF000) >> 4) + (pi_code & 0x00FF);
 	}
 
-	if ((pi_code & 0x00FF) == 0) { // When 1st & 2nd chars are 0
+	/* When 1st & 2nd chars are 0 */
+	if ((pi_code & 0x00FF) == 0) {
 		pi_code = 0xAF00 + ((pi_code & 0xFF00) >> 8);
 	}
 
@@ -149,11 +158,11 @@ uint16_t callsign2pi(char *callsign) {
  *
  */
 static inline uint16_t rotr16(uint16_t value, uint8_t count) {
-	return value >> count | value << (16 - count);
+	return value >> (count & 15) | value << (16 - (count & 15));
 }
 
 static inline uint16_t rotl16(uint16_t value, uint8_t count) {
-	return value << count | value >> (16 - count);
+	return value << (count & 15) | value >> (16 - (count & 15));
 }
 
 uint16_t tmc_encrypt(uint16_t loc, uint16_t key) {

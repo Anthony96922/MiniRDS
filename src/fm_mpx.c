@@ -45,20 +45,25 @@ void set_output_volume(uint8_t vol) {
 	mpx_vol = ((float)vol / 100.0f);
 }
 
-// subcarrier volumes
+/* subcarrier volumes */
 static float volumes[] = {
-	0.09f, // pilot tone: 9% modulation
-	0.09f, // RDS: 4.5% modulation
+	0.09f, /* pilot tone: 9% */
+	0.09f, /* RDS: 4.5% modulation */
 #ifdef RDS2
-	0.09f, // RDS 2
+	/* RDS2 */
+	0.09f,
 	0.09f,
 	0.09f
 #endif
 };
 
 void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
+	/* check for valid index */
 	if (carrier > NUM_SUBCARRIERS) return;
+
+	/* don't allow levels over 15% */
 	if (new_volume >= 15) volumes[carrier] = 0.09f;
+
 	volumes[carrier] = (float)new_volume / 100.0f;
 }
 
@@ -80,7 +85,7 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 	for (size_t i = 0; i < num_frames; i++) {
 		out = 0.0f;
 
-		// Pilot tone for calibration
+		/* Pilot tone for calibration */
 		out += osc_get_cos(&osc_19k) * volumes[0];
 
 		out += osc_get_cos(&osc_57k) * get_rds_sample(0) * volumes[1];
@@ -105,7 +110,7 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		out = fminf(+1.0f, out);
 		out = fmaxf(-1.0f, out);
 
-		/* put into both channels and adjust volume */
+		/* adjust volume and put into both channels */
 		outbuf[j+0] = outbuf[j+1] = out * mpx_vol;
 		j += 2;
 
