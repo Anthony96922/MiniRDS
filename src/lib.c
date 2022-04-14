@@ -79,6 +79,20 @@ static inline uint16_t crc(uint16_t block) {
 	return crc;
 }
 
+uint16_t crc16(uint8_t *data, size_t len) {
+	uint16_t crc = 0xffff;
+
+	for (size_t i = 0; i < len; i++) {
+		crc = (crc >> 8) | (crc << 8);
+		crc ^= data[i];
+		crc ^= (crc & 0xff) >> 4;
+		crc ^= (crc << 8) << 4;
+		crc ^= ((crc & 0xff) << 4) << 1;
+	}
+
+	return crc ^ 0xffff;
+}
+
 /* Calculate the checkword for each block and emit the bits */
 void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 	uint16_t block, check, offset_word;
@@ -87,7 +101,7 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 		block = blocks[i];
 		offset_word = offset_words[i];
 
-		/* RDS2 needs C' */
+		/* Group version B needs C' */
 		if (i == 3 && ((blocks[1] >> 11) & 1))
 			offset_word = offset_words[4];
 

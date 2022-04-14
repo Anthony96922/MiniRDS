@@ -16,4 +16,34 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-extern float get_rds2_bits(uint8_t stream_num, uint8_t *bits);
+typedef struct rds2_oda_t {
+	uint16_t aid;
+	uint8_t channel;
+} rds2_oda_t;
+
+#define GET_RDS2_ODA_CHANNEL(x)	(x & INT8_L5)
+
+#define MAX_IMAGE_LEN	163840
+
+typedef struct rft_t {
+	uint8_t channel;
+
+	char *file_data;
+	size_t file_len;
+	uint8_t file_version;
+	uint8_t file_id;
+	uint8_t variant_code;
+
+	size_t seg_addr;
+	size_t num_segs;
+
+	size_t chunk_addr;
+	size_t num_chunks;
+
+	uint8_t crc_mode;
+	uint16_t *crcs;
+} rft_t;
+
+extern void get_rds2_bits(uint8_t stream_num, uint8_t *bits);
+extern void init_rds2_encoder();
+extern void exit_rds2_encoder();

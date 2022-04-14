@@ -46,6 +46,7 @@
 #define RT_LENGTH 64
 #define PS_LENGTH 8
 #define PTYN_LENGTH 8
+#define ERT_LENGTH	128
 
 /* AF list size
  *
@@ -82,6 +83,9 @@ typedef struct rds_params_t {
 	struct rds_af_t af;
 
 	uint8_t tx_ctime;
+
+	/* eRT */
+	char ert[ERT_LENGTH];
 } rds_params_t;
 /* Here, the first member of the struct must be a scalar to avoid a
    warning on -Wmissing-braces with GCC < 4.8.3
@@ -163,30 +167,30 @@ typedef struct rds_params_t {
 
 // Bit mask
 // Lower
-#define BIT_L1		0x01
-#define BIT_L2		0x03
-#define BIT_L3		0x07
-#define BIT_L4		0x0f
-#define BIT_L5		0x1f
-#define BIT_L6		0x3f
-#define BIT_L7		0x7f
+#define INT8_L1		0x01
+#define INT8_L2		0x03
+#define INT8_L3		0x07
+#define INT8_L4		0x0f
+#define INT8_L5		0x1f
+#define INT8_L6		0x3f
+#define INT8_L7		0x7f
 // Upper
-#define BIT_U7		0xfe
-#define BIT_U6		0xfc
-#define BIT_U5		0xf8
-#define BIT_U4		0xf0
-#define BIT_U3		0xe0
-#define BIT_U2		0xc0
-#define BIT_U1		0x80
+#define INT8_U7		0xfe
+#define INT8_U6		0xfc
+#define INT8_U5		0xf8
+#define INT8_U4		0xf0
+#define INT8_U3		0xe0
+#define INT8_U2		0xc0
+#define INT8_U1		0x80
 // Single
-#define BIT_0		0x01
-#define BIT_1		0x02
-#define BIT_2		0x04
-#define BIT_3		0x08
-#define BIT_4		0x10
-#define BIT_5		0x20
-#define BIT_6		0x40
-#define BIT_7		0x80
+#define INT8_0		0x01
+#define INT8_1		0x02
+#define INT8_2		0x04
+#define INT8_3		0x08
+#define INT8_4		0x10
+#define INT8_5		0x20
+#define INT8_6		0x40
+#define INT8_7		0x80
 
 /* RDS ODA ID group
  *
@@ -199,6 +203,8 @@ typedef struct rds_oda_t {
 	uint16_t aid;
 	uint16_t scb;
 } rds_oda_t;
+
+#define MAX_ODAS	8
 
 // The PTY region. This determines which PTY list to use
 enum rds_pty_regions {
