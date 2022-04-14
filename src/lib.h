@@ -24,3 +24,5 @@ extern uint16_t crc16(uint8_t *data, size_t len);
 // TMC
 extern uint16_t tmc_encrypt(uint16_t loc, uint16_t key);
 extern uint16_t tmc_decrypt(uint16_t loc, uint16_t key);
+
+extern int8_t get_tzoffset(uint8_t utc_h, uint8_t loc_h);

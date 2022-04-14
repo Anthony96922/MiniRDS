@@ -200,3 +200,24 @@ uint16_t tmc_decrypt(uint16_t loc, uint16_t key) {
 
 	return dec_loc;
 }
+
+/*
+ * get the timezone difference
+ *
+ */
+int8_t get_tzoffset(uint8_t utc_h, uint8_t loc_h) {
+	int8_t tz_off = 0;
+	uint8_t is_neg = 0;
+	uint8_t hours = loc_h;
+
+	while (hours != utc_h) {
+		hours++;
+		tz_off++;
+		if (hours > 23) {
+			hours = 0;
+			is_neg = 1;
+		}
+	}
+
+	return is_neg ? -tz_off : tz_off;
+}

@@ -82,29 +82,30 @@ static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
  */
 static uint8_t get_rds_ct_group(uint16_t *blocks) {
 	static uint8_t latest_minutes;
+	struct tm utc, local;
 
 	// Check time
 	time_t now = time(NULL);
-	struct tm *utc = gmtime(&now);
+	memcpy(&utc, gmtime(&now), sizeof(struct tm));
 
-	if (utc->tm_min != latest_minutes) {
+	if (utc.tm_min != latest_minutes) {
 		// Generate CT group
-		latest_minutes = utc->tm_min;
+		latest_minutes = utc.tm_min;
 
-		uint8_t l = utc->tm_mon <= 1 ? 1 : 0;
-		uint16_t mjd = 14956 + utc->tm_mday +
-			(uint16_t)((utc->tm_year - l) * 365.25) +
-			(uint16_t)((utc->tm_mon + 2 + l*12) * 30.6001);
+		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
+		uint16_t mjd = 14956 + utc.tm_mday +
+			(uint16_t)((utc.tm_year - l) * 365.25) +
+			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001);
 
 		blocks[1] |= 4 << 12 | (mjd>>15);
-		blocks[2] = (mjd<<1) | (utc->tm_hour>>4);
-		blocks[3] = (utc->tm_hour & 0xF)<<12 | utc->tm_min<<6;
+		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
+		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
 
-		struct tm *local = localtime(&now);
+		memcpy(&local, localtime(&now), sizeof(struct tm));
 
-		int8_t offset = local->tm_hour - utc->tm_hour;
-		blocks[3] |= abs(offset);
-		if (offset < 0) blocks[3] |= (1 << 5);
+		int8_t offset = get_tzoffset(utc.tm_hour, local.tm_hour);
+		blocks[3] |= (offset > 0 ? 0 : 1) << 5;
+		blocks[3] |= abs(2 * offset) & INT8_L5;
 
 		return 1;
 	}
