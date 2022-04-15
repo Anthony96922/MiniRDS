@@ -16,12 +16,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/*
- * Uncomment for LF/MF AF coding for ITU region 1 & 3 9 kHz spacing
- *
- */
-//#define LFMF_AF_ROW
-
 #ifndef RDS_H
 #define RDS_H
 
@@ -205,12 +199,6 @@ typedef struct rds_oda_t {
 } rds_oda_t;
 
 #define MAX_ODAS	8
-
-// The PTY region. This determines which PTY list to use
-enum rds_pty_regions {
-	REGION_FCC, // NRSC RBDS
-	REGION_ROW  // Rest of the world
-};
 
 extern void init_rds_encoder(struct rds_params_t rds_params, char *call_sign);
 extern void exit_rds_encoder();

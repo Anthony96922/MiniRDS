@@ -94,8 +94,8 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 
 		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
 		uint16_t mjd = 14956 + utc.tm_mday +
-			(uint16_t)((utc.tm_year - l) * 365.25) +
-			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001);
+			(uint16_t)((utc.tm_year - l) * 365.25f) +
+			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
 
 		blocks[1] |= 4 << 12 | (mjd>>15);
 		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
@@ -103,7 +103,10 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 
 		memcpy(&local, localtime(&now), sizeof(struct tm));
 
-		int8_t offset = get_tzoffset(utc.tm_hour, local.tm_hour);
+		int8_t offset = local.tm_hour - utc.tm_hour;
+		if (utc.tm_hour <= 12)
+			offset -= 24;
+
 		blocks[3] |= (offset > 0 ? 0 : 1) << 5;
 		blocks[3] |= abs(2 * offset) & INT8_L5;
 
@@ -377,7 +380,11 @@ static void show_af_list(struct rds_af_t af_list) {
 			af_is_lf_mf = 1;
 		} else {
 			if (af_is_lf_mf) {
-#ifdef LFMF_AF_ROW
+#ifdef RBDS
+				// MF (FCC)
+				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
+				fprintf(stderr, " (MF)%.0f", freq);
+#else
 				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { // LF
 					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
 					fprintf(stderr, " (LF)%.0f", freq);
@@ -385,10 +392,6 @@ static void show_af_list(struct rds_af_t af_list) {
 					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
 					fprintf(stderr, " (MF)%.0f", freq);
 				}
-#else
-				// MF (FCC)
-				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
-				fprintf(stderr, " (MF)%.0f", freq);
 #endif
 			} else {
 				// FM
@@ -403,14 +406,9 @@ static void show_af_list(struct rds_af_t af_list) {
 }
 
 void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
-	enum rds_pty_regions region = REGION_FCC;
-
-	if (rds_params.pty > 31) {
-		fprintf(stderr, "PTY must be between 0-31.\n");
-		rds_params.pty = 0;
-	}
 
 	if (call_sign[3]) {
+#ifdef RBDS
 		uint16_t new_pi;
 		if ((new_pi = callsign2pi(call_sign))) {
 			fprintf(stderr, "Calculated PI code from callsign '%s'.\n", call_sign);
@@ -418,6 +416,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 		} else {
 			fprintf(stderr, "Invalid callsign '%s'.\n", call_sign);
 		}
+#endif
 	}
 
 	fprintf(stderr, "RDS Options\n");
@@ -425,7 +424,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 		rds_params.pi,
 		rds_params.ps,
 		rds_params.pty,
-		get_pty(region, rds_params.pty),
+		get_pty(rds_params.pty),
 		rds_params.tp ? "ON" : "OFF");
 	fprintf(stderr, "RT: \"%s\"\n", rds_params.rt);
 
@@ -548,7 +547,16 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 		af = (uint16_t)(freq * 10.0f) - 875;
 		af_list->afs[af_list->num_entries] = af;
 		af_list->num_entries += 1;
-#ifdef LFMF_AF_ROW
+#ifdef RBDS
+	} else if (freq >= 530.0f && freq <= 1610.0f) {
+		af = ((uint16_t)(freq - 530.0f) / 10) + 16;
+		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
+		af_list->afs[af_list->num_entries+1] = af;
+		af_list->num_entries += 2;
+	} else {
+		fprintf(stderr, "AF must be between 87.6-107.9 MHz "
+			"or 530-1610 kHz (with 10 kHz spacing)\n");
+#else
 	} else if (freq >= 153.0f && freq <= 279.0f) {
 		af = ((uint16_t)(freq - 153.0f) / 9) + 1;
 		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
@@ -562,15 +570,6 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 	} else {
 		fprintf(stderr, "AF must be between 87.6-107.9 MHz, "
 			"153-279 kHz or 531-1602 kHz (with 9 kHz spacing)\n");
-#else
-	} else if (freq >= 530.0f && freq <= 1610.0f) {
-		af = ((uint16_t)(freq - 530.0f) / 10) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
-		af_list->num_entries += 2;
-	} else {
-		fprintf(stderr, "AF must be between 87.6-107.9 MHz "
-			"or 530-1610 kHz (with 10 kHz spacing)\n");
 #endif
 		return 1;
 	}

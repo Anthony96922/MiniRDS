@@ -16,7 +16,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "rds.h"
+#ifdef RDS2
+#define NUM_STREAMS	4
+#else
+#define NUM_STREAMS	1
+#endif
 
 /* RDS signal context */
 typedef struct rds_t {

@@ -69,11 +69,7 @@ void osc_init(struct osc_t *osc, uint32_t sample_rate, float freq) {
 	/* sample rate for the objects */
 	osc->sample_rate = sample_rate;
 
-	/*
-	 * waveform tables
-	 *
-	 * cosine and sine
-	 */
+	/* waveform tables */
 	osc->sin_wave = malloc(osc->sample_rate * sizeof(float));
 	osc->cos_wave = malloc(osc->sample_rate * sizeof(float));
 

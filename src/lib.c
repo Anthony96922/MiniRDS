@@ -25,34 +25,33 @@
  */
 
 // RDS PTY list
-static char *ptys[2][32] = {
+static char *ptys[32] = {
+#ifdef RBDS
 	// NRSC RBDS
-	{
-		"None", "News", "Information", "Sports",
-		"Talk", "Rock", "Classic rock", "Adult hits",
-		"Soft rock" , "Top 40", "Country", "Oldies",
-		"Soft music", "Nostalgia", "Jazz", "Classical",
-		"R&B", "Soft R&B", "Language", "Religious music",
-		"Religious talk", "Personality", "Public", "College",
-		"Spanish talk", "Spanish music", "Hip-Hop", "Unassigned",
-		"Unassigned", "Weather", "Emergency test", "Emergency"
-	},
+	"None", "News", "Information", "Sports",
+	"Talk", "Rock", "Classic rock", "Adult hits",
+	"Soft rock" , "Top 40", "Country", "Oldies",
+	"Soft music", "Nostalgia", "Jazz", "Classical",
+	"R&B", "Soft R&B", "Language", "Religious music",
+	"Religious talk", "Personality", "Public", "College",
+	"Spanish talk", "Spanish music", "Hip-Hop", "Unassigned",
+	"Unassigned", "Weather", "Emergency test", "Emergency"
+#else
 	// ETSI
-	{
-		"None", "News", "Current affairs", "Information",
-		"Sport", "Education", "Drama", "Culture", "Science",
-		"Varied", "Pop music", "Rock music", "Easy listening",
-		"Light classical", "Serious classical", "Other music",
-		"Weather", "Finance", "Children's programs",
-		"Social affairs", "Religion", "Phone-in", "Travel",
-		"Leisure", "Jazz music", "Country music",
-		"National music", "Oldies music", "Folk music",
-		"Documentary", "Alarm test", "Alarm"
-	}
+	"None", "News", "Current affairs", "Information",
+	"Sport", "Education", "Drama", "Culture", "Science",
+	"Varied", "Pop music", "Rock music", "Easy listening",
+	"Light classical", "Serious classical", "Other music",
+	"Weather", "Finance", "Children's programs",
+	"Social affairs", "Religion", "Phone-in", "Travel",
+	"Leisure", "Jazz music", "Country music",
+	"National music", "Oldies music", "Folk music",
+	"Documentary", "Alarm test", "Alarm"
+#endif
 };
 
-char *get_pty(uint8_t region, uint8_t pty) {
-	return ptys[region][pty];
+char *get_pty(uint8_t pty) {
+	return ptys[pty];
 }
 
 static uint16_t offset_words[] = {
@@ -117,6 +116,7 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 	}
 }
 
+#ifdef RBDS
 /*
  * PI code calculator
  *
@@ -159,6 +159,7 @@ uint16_t callsign2pi(char *callsign) {
 
 	return pi_code;
 }
+#endif
 
 /*
  * TMC stuff (for future use)
@@ -199,25 +200,4 @@ uint16_t tmc_decrypt(uint16_t loc, uint16_t key) {
 	dec_loc = rotl16(p2, key >> 12);
 
 	return dec_loc;
-}
-
-/*
- * get the timezone difference
- *
- */
-int8_t get_tzoffset(uint8_t utc_h, uint8_t loc_h) {
-	int8_t tz_off = 0;
-	uint8_t is_neg = 0;
-	uint8_t hours = loc_h;
-
-	while (hours != utc_h) {
-		hours++;
-		tz_off++;
-		if (hours > 23) {
-			hours = 0;
-			is_neg = 1;
-		}
-	}
-
-	return is_neg ? -tz_off : tz_off;
 }

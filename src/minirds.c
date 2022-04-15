@@ -88,16 +88,18 @@ static void show_help(char *name, struct rds_params_t def_params) {
 		"                        [default: %u]\n"
 		"    -T,--tp           Traffic Program\n"
 		"                        [default: %u]\n"
-#ifdef LFMF_AF_ROW
-		"    -A,--af           Alternative Frequency (FM/LF/MF)\n"
-#else
+#ifdef RBDS
 		"    -A,--af           Alternative Frequency (FM/MF)\n"
+#else
+		"    -A,--af           Alternative Frequency (FM/LF/MF)\n"
 #endif
 		"                        (more than one AF may be passed)\n"
 		"    -P,--ptyn         Program Type Name\n"
 		"\n"
+#ifdef RBDS
 		"    -S,--callsign     FCC callsign to calculate the PI code from\n"
 		"                        (overrides -i,--pi)\n"
+#endif
 		"    -C,--ctl          FIFO control pipe\n"
 		"\n"
 		"    -h,--help         Show this help text and exit\n"
@@ -160,7 +162,12 @@ int main(int argc, char **argv) {
 	pthread_mutex_t control_pipe_mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t control_pipe_cond;
 
-	const char	*short_opt = "m:R:i:s:r:p:T:A:P:S:C:hv";
+	const char	*short_opt = "m:R:i:s:r:p:T:A:P:"
+#ifdef RBDS
+	"S:"
+#endif
+	"C:hv";
+
 	struct option	long_opt[] =
 	{
 		{"volume",	required_argument, NULL, 'm'},
@@ -173,7 +180,9 @@ int main(int argc, char **argv) {
 		{"tp",		required_argument, NULL, 'T'},
 		{"af",		required_argument, NULL, 'A'},
 		{"ptyn",	required_argument, NULL, 'P'},
+#ifdef RBDS
 		{"callsign",	required_argument, NULL, 'S'},
+#endif
 		{"ctl",		required_argument, NULL, 'C'},
 
 		{"help",	no_argument, NULL, 'h'},
@@ -229,9 +238,11 @@ keep_parsing_opts:
 			memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
 			break;
 
+#ifdef RBDS
 		case 'S': //callsign
 			strncpy(callsign, optarg, 4);
 			break;
+#endif
 
 		case 'C': //ctl
 			strncpy(control_pipe, optarg, 50);
@@ -340,6 +351,8 @@ done_parsing_opts:
 		}
 	}
 
+	resampler_exit(src_state);
+
 exit:
 	if (control_pipe[0]) {
 		// shut down threads
@@ -349,8 +362,6 @@ exit:
 	}
 
 	pthread_attr_destroy(&attr);
-
-	resampler_exit(src_state);
 
 	fm_mpx_exit();
 	exit_rds_encoder();

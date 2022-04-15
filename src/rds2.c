@@ -29,13 +29,6 @@
 extern unsigned char station_logo[];
 extern unsigned int station_logo_len;
 
-static struct rds2_oda_t rds2_odas[MAX_ODAS];
-
-static struct {
-	uint8_t current;
-	uint8_t count;
-} oda_state;
-
 static struct rft_t station_logo_group;
 
 static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, size_t len) {
@@ -93,26 +86,16 @@ static void exit_rft(struct rft_t *rft) {
 	free(rft->crcs);
 }
 
-static void register_rds2_oda(uint8_t channel, uint16_t aid) {
-
-	if (oda_state.count == MAX_ODAS) return; /* can't accept more ODAs */
-
-	rds2_odas[oda_state.count].channel = channel;
-	rds2_odas[oda_state.count].aid = aid;
-	oda_state.count++;
-}
-
 void init_rds2_encoder() {
 	init_rft(&station_logo_group, 8, station_logo, station_logo_len);
-
-	/* register the RFT ODA */
-	register_rds2_oda(8, 0xFF7F);
 }
 
 static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 
 	/* function header */
 	blocks[0] = 2 << 12;
+
+	/* pipe number */
 	blocks[0] |= (rft->channel & INT8_L4) << 8;
 
 	/* toggle */
@@ -136,19 +119,30 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 
 static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
 
+	/* function header */
 	blocks[0] = (2 << 6) << 8;
+
+	/* pipe number */
 	blocks[0] |= rft->channel & INT8_L4;
 
+	/* ODA AID */
 	blocks[1] = 0xFF7F;
 
+	/* variant code */
 	blocks[2] = (0 & INT8_L4) << 12;
+
+	/* crc flag */
 	blocks[2] |= (rft->crc_mode & INT8_L1) << 11;
+
+	/* file version */
 	blocks[2] |= (rft->file_version & INT8_L3) << 8;
+
+	/* file indentification */
 	blocks[2] |= (rft->file_id & INT8_L6) << 2;
+
+	/* file size */
 	blocks[2] |= (rft->file_len & (3 << 16));
-
 	blocks[3] = rft->file_len & 0xFFFF;
-
 }
 
 /*
@@ -156,15 +150,26 @@ static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
  *
  */
 static void get_rft_variant_1_group(struct rft_t *rft, uint16_t *blocks) {
+
+	/* function header */
 	blocks[0] = (2 << 6) << 8;
+
+	/* pipe number */
 	blocks[0] |= rft->channel & INT8_L4;
 
+	/* ODA AID */
 	blocks[1] = 0xFF7F;
 
+	/* variant code */
 	blocks[2] = (1 & INT8_L4) << 12;
-	blocks[2] |= (rft->crc_mode & INT8_L1) << 11;
-	blocks[2] |= rft->chunk_addr;
 
+	/* mode */
+	blocks[2] |= (rft->crc_mode & INT8_L3) << 9;
+
+	/* chunk address */
+	blocks[2] |= rft->chunk_addr & 511;
+
+	/* crc */
 	blocks[3] = rft->crcs[rft->chunk_addr];
 
 	rft->chunk_addr++;

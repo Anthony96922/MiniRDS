@@ -23,10 +23,8 @@
 #include "rds.h"
 #include "fm_mpx.h"
 
-//#define CONTROL_PIPE_MESSAGES
-
-#define CMD_BUFFER_SIZE	200
-#define CTL_BUFFER_SIZE	(CMD_BUFFER_SIZE * 10)
+#define CMD_BUFFER_SIZE	160
+#define CTL_BUFFER_SIZE	(CMD_BUFFER_SIZE * 2)
 #define READ_TIMEOUT_MS	100
 
 static int fd;
@@ -52,7 +50,7 @@ int open_control_pipe(char *filename) {
  * processes it and updates the RDS data.
  */
 void poll_control_pipe() {
-	static char buf[CTL_BUFFER_SIZE];
+	static char pipe_buf[CTL_BUFFER_SIZE];
 	static char cmd_buf[CMD_BUFFER_SIZE];
 	char *arg;
 	char *token;
@@ -63,10 +61,10 @@ void poll_control_pipe() {
 	/* return early if there are no new commands */
 	if ((poller.revents | poller.events) == 0) return;
 
-	memset(buf, 0, CTL_BUFFER_SIZE);
-	read(fd, buf, CTL_BUFFER_SIZE - 1);
+	memset(pipe_buf, 0, CTL_BUFFER_SIZE);
+	read(fd, pipe_buf, CTL_BUFFER_SIZE - 1);
 
-	token = strtok(buf, "\n");
+	token = strtok(pipe_buf, "\n");
 
 	while (token != NULL) {
 		memset(cmd_buf, 0, CMD_BUFFER_SIZE);
@@ -78,7 +76,7 @@ void poll_control_pipe() {
 
 			if (strncmp(cmd_buf, "PI", 2) == 0) {
 				arg[4] = 0;
-				uint16_t pi = strtoul(arg, NULL, 16) & 65535;
+				uint16_t pi = strtoul(arg, NULL, 16);
 				set_rds_pi(pi);
 #ifdef CONTROL_PIPE_MESSAGES
 				fprintf(stderr, "PI set to \"%04X\"\n", pi);
@@ -99,7 +97,7 @@ void poll_control_pipe() {
 #endif
 			}
 			if (strncmp(cmd_buf, "TA", 2) == 0) {
-			uint8_t ta = arg[0] == '1' ? 1 : 0;
+				uint8_t ta = arg[0] == '1' ? 1 : 0;
 				set_rds_ta(ta);
 #ifdef CONTROL_PIPE_MESSAGES
 				fprintf(stderr, "Set TA to %s\n", ta ? "ON" : "OFF");
