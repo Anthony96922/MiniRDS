@@ -121,7 +121,7 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 	rft->seg_addr++;
 	if (rft->seg_addr >= rft->num_segs) {
 #ifdef RDS2_DEBUG
-		printf("File sending complete\n");
+		fprintf(stderr, "File sending complete\n");
 #endif
 		rft->seg_addr = 0;
 	}
@@ -177,7 +177,7 @@ static void get_rft_variant_1_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[2] |= (rft->crc_mode & INT8_L3) << 9;
 
 	/* chunk address */
-	blocks[2] |= rft->chunk_addr & 511;
+	blocks[2] |= rft->chunk_addr;
 
 	/* crc */
 	blocks[3] = rft->crcs[rft->chunk_addr];
