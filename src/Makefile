@@ -9,6 +9,9 @@ VERSION=1.0
 # (don't forget to run "make clean" first)
 RDS2 = 1
 
+# RDS2 debugging
+RDS2_DEBUG = 0
+
 # NRSC RBDS (FCC)
 # Uncomment for NRSC LF/MF AF coding and PTY list
 RBDS = 1
@@ -28,6 +31,10 @@ libs = -lm -lsamplerate -lpthread -lao
 ifeq ($(RDS2), 1)
 	CFLAGS += -DRDS2
 	obj += rds2.o rds2_image_data.o
+endif
+
+ifeq ($(RDS2_DEBUG), 1)
+	CFLAGS += -DRDS2_DEBUG
 endif
 
 ifeq ($(RBDS), 1)

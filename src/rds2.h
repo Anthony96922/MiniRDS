@@ -34,11 +34,11 @@ typedef struct rft_t {
 	uint8_t file_id;
 	uint8_t variant_code;
 
-	size_t seg_addr;
-	size_t num_segs;
+	uint16_t seg_addr;
+	uint16_t num_segs;
 
-	size_t chunk_addr;
-	size_t num_chunks;
+	uint16_t chunk_addr;
+	uint16_t num_chunks;
 
 	uint8_t crc_mode;
 	uint16_t *crcs;

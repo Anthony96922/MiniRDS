@@ -35,7 +35,7 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 	uint32_t seg_counter = 0;
 	uint32_t chunk_counter = 0;
 	uint16_t chunk_size = 0;
-	unsigned char chunks[64];
+	unsigned char *chunks;
 
 	/* image cannot be larger than 163840 bytes */
 	if (len > MAX_IMAGE_LEN) {
@@ -68,17 +68,22 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 	}
 
 	while (chunk_counter < len) {
-		chunk_counter += chunk_size;
+		chunk_counter += (chunk_size * 5);
 		rft->num_chunks++;
         }
 
 	rft->crcs = malloc(rft->num_chunks * sizeof(uint16_t));
 
+	chunks = malloc(chunk_size * 5);
+
 	for (uint16_t i = 0; i < rft->num_chunks; i++) {
-		memset(chunks, 0, chunk_size);
-		memcpy(chunks, rft->file_data + chunk_size * i, chunk_size);
-		rft->crcs[i] = crc16(chunks, chunk_size);
+		memset(chunks, 0, chunk_size * 5);
+		memcpy(chunks, rft->file_data + (i * chunk_size * 5), chunk_size * 5);
+		rft->crcs[i] = crc16(chunks, chunk_size * 5);
+		printf("0x%04x\n", rft->crcs[i]);
 	}
+
+	free(chunks);
 }
 
 static void exit_rft(struct rft_t *rft) {
@@ -113,8 +118,12 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[3] |= rft->file_data[rft->seg_addr*5+4];
 
 	rft->seg_addr++;
-	if (rft->seg_addr >= rft->num_segs)
+	if (rft->seg_addr >= rft->num_segs) {
+#ifdef RDS2_DEBUG
+		printf("File sending complete\n");
+#endif
 		rft->seg_addr = 0;
+	}
 }
 
 static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
@@ -181,7 +190,7 @@ static void get_rft_stream(uint16_t *blocks) {
 
 	switch (rft_state) {
 		case 0:
-			get_rft_data_group(&station_logo_group, blocks);
+			get_rft_variant_0_group(&station_logo_group, blocks);
 			break;
 
 		case 1:
@@ -189,12 +198,12 @@ static void get_rft_stream(uint16_t *blocks) {
 			break;
 
 		default:
-			get_rft_variant_0_group(&station_logo_group, blocks);
+			get_rft_data_group(&station_logo_group, blocks);
 			break;
 	}
 
 	rft_state++;
-	if (rft_state == 3) rft_state = 0;
+	if (rft_state == 16) rft_state = 0;
 }
 
 /*
@@ -210,7 +219,7 @@ static void get_rds2_group(uint8_t stream_num, uint16_t *blocks) {
 		break;
 	}
 
-#if 0
+#ifdef RDS2_DEBUG
 	fprintf(stderr, "Stream %u: %04x %04x %04x %04x\n",
 		stream_num, blocks[0], blocks[1], blocks[2], blocks[3]);
 #endif
