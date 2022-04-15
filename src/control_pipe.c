@@ -170,6 +170,13 @@ void poll_control_pipe() {
 				arg[4] = 0;
 				set_output_volume(strtoul(arg, NULL, 10));
 			}
+			if (strncmp(cmd_buf, "LPS", 3) == 0) {
+				arg[LPS_LENGTH] = 0;
+				set_rds_lps(arg);
+#ifdef CONTROL_PIPE_MESSAGES
+				fprintf(stderr, "LPS set to \"%s\"\n", arg);
+#endif
+			}
 		}
 
 		if (strlen(cmd_buf) > 5 && cmd_buf[4] == ' ') {

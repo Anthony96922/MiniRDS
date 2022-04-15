@@ -38,6 +38,10 @@ static struct {
 	uint8_t rt_bursting;
 	uint8_t ptyn_update;
 
+	/* Long PS */
+	uint8_t lps_update;
+	uint8_t lps_segments;
+
 	/* eRT */
 	uint8_t ert_update;
 	uint8_t ert_segments;
@@ -221,7 +225,7 @@ static void get_rds_oda_group(uint16_t *blocks) {
 /* PTYN group (10A)
  */
 static void get_rds_ptyn_group(uint16_t *blocks) {
-	static char ptyn_text[8];
+	static char ptyn_text[PTYN_LENGTH];
 	static uint8_t ptyn_state;
 
 	if (ptyn_state == 0 && rds_state.ptyn_update) {
@@ -235,6 +239,24 @@ static void get_rds_ptyn_group(uint16_t *blocks) {
 
 	ptyn_state++;
 	if (ptyn_state == 2) ptyn_state = 0;
+}
+
+/* Long PS group (15A) */
+static void get_rds_lps_group(uint16_t *blocks) {
+	static char lps_text[LPS_LENGTH];
+	static uint8_t lps_state;
+
+	if (lps_state == 0 && rds_state.lps_update) {
+		strncpy(lps_text, rds_data.lps, LPS_LENGTH);
+		rds_state.lps_update = 0;
+	}
+
+	blocks[1] |= 15 << 12 | (lps_state & INT8_L3);
+	blocks[2] = lps_text[lps_state*4+0] << 8 | lps_text[lps_state*4+1];
+	blocks[2] = lps_text[lps_state*4+2] << 8 | lps_text[lps_state*4+3];
+
+	lps_state++;
+	if (lps_state == rds_state.lps_segments) lps_state = 0;
 }
 
 // RT+
@@ -327,6 +349,15 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 		group[ert_cfg.group] = 0;
 		get_rds_ert_group(blocks);
 		return 1;
+	}
+
+	/* Type 15A groups */
+	if (rds_data.lps[0]) {
+		if (++group[GROUP_15A] >= 6) {
+			group[GROUP_15A] = 0;
+			get_rds_lps_group(blocks);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -512,6 +543,24 @@ void set_rds_ps(char *ps) {
 	rds_state.ps_update = 1;
 	memset(rds_data.ps, ' ', PS_LENGTH);
 	memcpy(rds_data.ps, ps, strlen(ps));
+}
+
+void set_rds_lps(char *lps) {
+	uint8_t lps_len = strlen(lps);
+
+	rds_state.lps_update = 1;
+	memset(rds_data.ps, '\r', LPS_LENGTH);
+
+	if (lps_len < LPS_LENGTH) {
+		for (uint8_t i = 0; i < LPS_LENGTH; i += 4) {
+			if (i >= lps_len) {
+				rds_state.lps_segments = i / 4;
+				break;
+			}
+		}
+	} else {
+		rds_state.lps_segments = 8;
+	}
 }
 
 void set_rds_rtplus_flags(uint8_t running, uint8_t toggle) {

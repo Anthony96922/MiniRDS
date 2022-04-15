@@ -40,6 +40,7 @@
 #define RT_LENGTH 64
 #define PS_LENGTH 8
 #define PTYN_LENGTH 8
+#define LPS_LENGTH	32
 #define ERT_LENGTH	128
 
 /* AF list size
@@ -77,6 +78,9 @@ typedef struct rds_params_t {
 	struct rds_af_t af;
 
 	uint8_t tx_ctime;
+
+	/* Long PS */
+	char lps[LPS_LENGTH];
 
 	/* eRT */
 	char ert[ERT_LENGTH];
@@ -206,6 +210,7 @@ extern void get_rds_bits(uint8_t *bits);
 extern void set_rds_pi(uint16_t pi_code);
 extern void set_rds_rt(char *rt);
 extern void set_rds_ps(char *ps);
+extern void set_rds_lps(char *lps);
 extern void set_rds_rtplus_flags(uint8_t running, uint8_t toggle);
 extern void set_rds_rtplus_tags(uint8_t *tags);
 extern void set_rds_ta(uint8_t ta);
