@@ -118,8 +118,8 @@ void poll_control_pipe() {
 #endif
 			}
 			if (strncmp(cmd_buf, "DI", 2) == 0) {
-				arg[1] = 0;
-				uint8_t di = strtoul(arg, NULL, 10) & 7;
+				arg[2] = 0;
+				uint8_t di = strtoul(arg, NULL, 10) & 15;
 				set_rds_di(di);
 #ifdef CONTROL_PIPE_MESSAGES
 				fprintf(stderr, "DI value set to %u\n", di);
@@ -186,6 +186,22 @@ void poll_control_pipe() {
 #endif
 				}
 			}
+			if (strncmp(cmd_buf, "ERT", 3) == 0) {
+				arg[ERT_LENGTH] = 0;
+				if (arg[0] == '-') {
+					char tmp[ERT_LENGTH];
+					tmp[0] = 0;
+					set_rds_ert(tmp);
+#ifdef CONTROL_PIPE_MESSAGES
+					fprintf(stderr, "ERT disabled\n");
+#endif
+				} else {
+					set_rds_ert(arg);
+#ifdef CONTROL_PIPE_MESSAGES
+					fprintf(stderr, "ERT set to \"%s\"\n", arg);
+#endif
+				}
+			}
 		}
 
 		if (strlen(cmd_buf) > 5 && cmd_buf[4] == ' ') {
@@ -220,6 +236,45 @@ void poll_control_pipe() {
 #endif
 					set_rds_ptyn(arg);
 				}
+			}
+			if (strncmp(cmd_buf, "ERTP", 3) == 0) {
+				uint8_t tags[8];
+				if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
+					&tags[0], &tags[1], &tags[2], &tags[3],
+					&tags[4], &tags[5]
+				) == 6) {
+#ifdef CONTROL_PIPE_MESSAGES
+					for (uint8_t i = 0; i < 2; i++) {
+						fprintf(stderr,
+							"RT+ tag %u: type: %u, start: %u, length: %u\n",
+							i, tags[i*3+0], tags[i*3+1], tags[i*3+2]);
+					}
+#endif
+					set_rds_ertplus_tags(tags);
+				}
+#ifdef CONTROL_PIPE_MESSAGES
+				else {
+					fprintf(stderr, "Could not parse RT+ tag info.\n");
+				}
+#endif
+			}
+		}
+		if (strlen(cmd_buf) > 6 && cmd_buf[5] == ' ') {
+			arg = cmd_buf + 6;
+
+			if (strncmp(cmd_buf, "ERTPF", 5) == 0) {
+				uint8_t ertp_flags[2];
+				if (sscanf(arg, "%hhu,%hhu", &ertp_flags[0], &ertp_flags[1]) == 2) {
+#ifdef CONTROL_PIPE_MESSAGES
+					fprintf(stderr, "eRT+ flags: running: %u, toggle: %u\n", ertp_flags[0], ertp_flags[1]);
+#endif
+					set_rds_ertplus_flags(ertp_flags[0], ertp_flags[1]);
+				}
+#ifdef CONTROL_PIPE_MESSAGES
+				else {
+					fprintf(stderr, "Could not parse eRT+ flags.\n");
+				}
+#endif
 			}
 		}
 	}

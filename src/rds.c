@@ -78,7 +78,7 @@ static struct {
 	uint8_t type[2];
 	uint8_t start[2];
 	uint8_t len[2];
-} ertp_cfg;
+} ertplus_cfg;
 
 
 static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
@@ -288,7 +288,7 @@ static void init_ert(uint8_t group) {
 /* eRT+ */
 static void init_ertp(uint8_t group) {
 	register_oda(group, 0x4BD8 /* eRT+ AID */, 0);
-	ertp_cfg.group = group;
+	ertplus_cfg.group = group;
 }
 
 /* RT+ group
@@ -331,6 +331,24 @@ static void get_rds_ert_group(uint16_t *blocks) {
 	if (ert_state == rds_state.ert_segments) ert_state = 0;
 }
 
+/* eRT+ group */
+static void get_rds_ertplus_group(uint16_t *blocks) {
+	// RT+ block format
+	blocks[1] |= GET_GROUP_TYPE(ertplus_cfg.group) << 12;
+	blocks[1] |= GET_GROUP_VER(ertplus_cfg.group) << 11;
+	blocks[1] |= ertplus_cfg.toggle << 4 | ertplus_cfg.running << 3;
+	blocks[1] |= (ertplus_cfg.type[0] & INT8_U5) >> 3;
+
+	blocks[2] = (ertplus_cfg.type[0] & INT8_L3) << 13;
+	blocks[2] |= (ertplus_cfg.start[0] & INT8_L6) << 7;
+	blocks[2] |= (ertplus_cfg.len[0] & INT8_L6) << 1;
+	blocks[2] |= (ertplus_cfg.type[1] & INT8_U3) >> 5;
+
+	blocks[3] = (ertplus_cfg.type[1] & INT8_L5) << 11;
+	blocks[3] |= (ertplus_cfg.start[1] & INT8_L6) << 5;
+	blocks[3] |= ertplus_cfg.len[1] & INT8_L5;
+}
+
 /* Lower priority groups are placed in a subsequence
  */
 static uint8_t get_rds_other_groups(uint16_t *blocks) {
@@ -354,16 +372,25 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 	}
 
 	// Type 11A groups
-	if (++group[rtplus_cfg.group] >= 20) {
+	if (++group[rtplus_cfg.group] >= 30) {
 		group[rtplus_cfg.group] = 0;
 		get_rds_rtplus_group(blocks);
 		return 1;
 	}
 
 	/* Type 12A groups */
-	if (++group[ert_cfg.group] >= 15) {
-		group[ert_cfg.group] = 0;
-		get_rds_ert_group(blocks);
+	if (rds_data.ert[0]) {
+		if (++group[ert_cfg.group] >= 3) {
+			group[ert_cfg.group] = 0;
+			get_rds_ert_group(blocks);
+			return 1;
+		}
+	}
+
+	/* Type 13A groups */
+	if (++group[ertplus_cfg.group] >= 30) {
+		group[ertplus_cfg.group] = 0;
+		get_rds_ertplus_group(blocks);
 		return 1;
 	}
 
@@ -553,6 +580,11 @@ void set_rds_rt(char *rt) {
 void set_rds_ert(char *ert) {
 	uint8_t ert_len = strlen(ert);
 
+	if (!ert[0]) {
+		memset(rds_data.ert, 0, ERT_LENGTH);
+		return;
+	}
+
 	rds_state.ert_update = 1;
 	memset(rds_data.ert, '\r', ERT_LENGTH);
 	memcpy(rds_data.ert, ert, ert_len);
@@ -566,8 +598,8 @@ void set_rds_ert(char *ert) {
 			/* We have reached the end of the text string */
 		}
 	} else {
-		/* Default to 64 if RT is 128 characters long */
-		rds_state.ert_segments = 64;
+		/* Default to 32 if eRT is 128 characters long */
+		rds_state.ert_segments = 32;
 	}
 
 	rds_state.ert_bursting = rds_state.ert_segments;
@@ -599,19 +631,32 @@ void set_rds_lps(char *lps) {
 }
 
 void set_rds_rtplus_flags(uint8_t running, uint8_t toggle) {
-	if (running > 1) running = 1;
-	if (toggle > 1) toggle = 1;
-	rtplus_cfg.running = running;
-	rtplus_cfg.toggle = toggle;
+	rtplus_cfg.running	= running & 1;
+	rtplus_cfg.toggle	= toggle & 1;
 }
 
 void set_rds_rtplus_tags(uint8_t *tags) {
-	rtplus_cfg.type[0]	= (tags[0] < 63) ? tags[0] : 0;
-	rtplus_cfg.start[0]	= (tags[1] < 64) ? tags[1] : 0;
-	rtplus_cfg.len[0]	= (tags[2] < 63) ? tags[2] : 0;
-	rtplus_cfg.type[1]	= (tags[3] < 63) ? tags[3] : 0;
-	rtplus_cfg.start[1]	= (tags[4] < 64) ? tags[4] : 0;
-	rtplus_cfg.len[1]	= (tags[5] < 32) ? tags[5] : 0;
+	rtplus_cfg.type[0]	= tags[0] & INT8_L6;
+	rtplus_cfg.start[0]	= tags[1] & INT8_L6;
+	rtplus_cfg.len[0]	= tags[2] & INT8_L6;
+	rtplus_cfg.type[1]	= tags[3] & INT8_L6;
+	rtplus_cfg.start[1]	= tags[4] & INT8_L6;
+	rtplus_cfg.len[1]	= tags[5] & INT8_L5;
+}
+
+/* eRT+ */
+void set_rds_ertplus_flags(uint8_t running, uint8_t toggle) {
+	ertplus_cfg.running	= running & 1;
+	ertplus_cfg.toggle	= toggle & 1;
+}
+
+void set_rds_ertplus_tags(uint8_t *tags) {
+	ertplus_cfg.type[0]	= tags[0] & INT8_L6;
+	ertplus_cfg.start[0]	= tags[1] & INT8_L6;
+	ertplus_cfg.len[0]	= tags[2] & INT8_L6;
+	ertplus_cfg.type[1]	= tags[3] & INT8_L6;
+	ertplus_cfg.start[1]	= tags[4] & INT8_L6;
+	ertplus_cfg.len[1]	= tags[5] & INT8_L5;
 }
 
 /*
