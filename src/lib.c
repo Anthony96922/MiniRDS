@@ -78,6 +78,7 @@ static inline uint16_t crc(uint16_t block) {
 	return crc;
 }
 
+/* CRC-16 ITU-T/CCITT checkword calculation */
 uint16_t crc16(uint8_t *data, size_t len) {
 	uint16_t crc = 0xffff;
 
@@ -100,8 +101,8 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 		block = blocks[i];
 		offset_word = offset_words[i];
 
-		/* Group version B needs C' */
-		if (i == 3 && ((blocks[1] >> 11) & 1))
+		/* Group version B needs C' for block 3 */
+		if (i == 2 && ((blocks[1] >> 11) & 1))
 			offset_word = offset_words[4];
 
 		check = crc(block) ^ offset_word;

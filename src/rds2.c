@@ -107,7 +107,7 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[0] |= (rft->channel & INT8_L4) << 8;
 
 	/* toggle */
-	blocks[0] |= (0 & INT8_L1) << 7;
+	blocks[0] |= (0 & 1) << 7;
 
 	/* segment address */
 	blocks[0] |= (rft->seg_addr >> 8) & INT8_L7;
@@ -144,7 +144,7 @@ static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[2] = (0 & INT8_L4) << 12;
 
 	/* crc flag */
-	blocks[2] |= (rft->crc_mode & INT8_L1) << 11;
+	blocks[2] |= (rft->crc_mode & 1) << 11;
 
 	/* file version */
 	blocks[2] |= (rft->file_version & INT8_L3) << 8;

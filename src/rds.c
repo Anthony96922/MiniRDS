@@ -185,13 +185,13 @@ static void get_rds_ps_group(uint16_t *blocks) {
 	}
 
 	// TA
-	blocks[1] |= (rds_data.ta & INT8_L1) << 4;
+	blocks[1] |= (rds_data.ta & 1) << 4;
 
 	// MS
-	blocks[1] |= (rds_data.ms & INT8_L1) << 3;
+	blocks[1] |= (rds_data.ms & 1) << 3;
 
 	// DI
-	blocks[1] |= ((rds_data.di >> (3 - ps_state)) & INT8_L1) << 2;
+	blocks[1] |= ((rds_data.di >> (3 - ps_state)) & 1) << 2;
 
 	// PS segment address
 	blocks[1] |= (ps_state & INT8_L2);
@@ -222,7 +222,7 @@ static void get_rds_rt_group(uint16_t *blocks) {
 	}
 
 	blocks[1] |= 2 << 12;
-	blocks[1] |= (rds_state.ab & INT8_L1) << 4;
+	blocks[1] |= (rds_state.ab & 1) << 4;
 	blocks[1] |= rt_state & INT8_L4;
 	blocks[2] = rt_text[rt_state*4+0] << 8 | rt_text[rt_state*4+1];
 	blocks[3] = rt_text[rt_state*4+2] << 8 | rt_text[rt_state*4+3];
@@ -430,8 +430,7 @@ static void get_rds_group(uint16_t *blocks) {
 
 	// Basic block data
 	blocks[0] = rds_data.pi;
-	blocks[1] = (rds_data.tp & INT8_L1) << 10;
-	blocks[1] |= (rds_data.pty & INT8_L5) << 5;
+	blocks[1] = (rds_data.tp & 1) << 10 | (rds_data.pty & INT8_L5) << 5;
 	blocks[2] = 0;
 	blocks[3] = 0;
 
@@ -449,6 +448,11 @@ static void get_rds_group(uint16_t *blocks) {
 			}
 			if (state == 2) state = 0;
 		}
+	}
+
+	/* for version B groups */
+	if ((blocks[1] >> 11) & 1) {
+		blocks[2] = rds_data.pi;
 	}
 }
 
