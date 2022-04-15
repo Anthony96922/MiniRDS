@@ -173,7 +173,7 @@ void poll_control_pipe() {
 			if (strncmp(cmd_buf, "LPS", 3) == 0) {
 				arg[LPS_LENGTH] = 0;
 				if (arg[0] == '-') {
-					char tmp[LPS_LENGTH];
+					char tmp[1];
 					tmp[0] = 0;
 					set_rds_lps(tmp);
 #ifdef CONTROL_PIPE_MESSAGES
@@ -189,7 +189,7 @@ void poll_control_pipe() {
 			if (strncmp(cmd_buf, "ERT", 3) == 0) {
 				arg[ERT_LENGTH] = 0;
 				if (arg[0] == '-') {
-					char tmp[ERT_LENGTH];
+					char tmp[1];
 					tmp[0] = 0;
 					set_rds_ert(tmp);
 #ifdef CONTROL_PIPE_MESSAGES
@@ -224,17 +224,17 @@ void poll_control_pipe() {
 			if (strncmp(cmd_buf, "PTYN", 4) == 0) {
 				arg[8] = 0;
 				if (arg[0] == '-') {
+					char tmp[1];
+					tmp[0] = 0;
+					set_rds_ptyn(tmp);
 #ifdef CONTROL_PIPE_MESSAGES
 					fprintf(stderr, "PTYN disabled\n");
 #endif
-					char tmp[8];
-					tmp[0] = 0;
-					set_rds_ptyn(tmp);
 				} else {
+					set_rds_ptyn(arg);
 #ifdef CONTROL_PIPE_MESSAGES
 					fprintf(stderr, "PTYN set to \"%s\"\n", arg);
 #endif
-					set_rds_ptyn(arg);
 				}
 			}
 			if (strncmp(cmd_buf, "ERTP", 3) == 0) {

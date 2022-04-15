@@ -550,6 +550,7 @@ void set_rds_pi(uint16_t pi_code) {
 }
 
 void set_rds_rt(char *rt) {
+	uint8_t i = 0;
 	uint8_t rt_len = strlen(rt);
 
 	rds_state.rt_update = 1;
@@ -557,17 +558,17 @@ void set_rds_rt(char *rt) {
 	memcpy(rds_data.rt, rt, rt_len);
 
 	if (rt_len < RT_LENGTH) {
+		rds_state.rt_segments = 0;
+
 		/* Terminate RT with '\r' (carriage return) if RT
 		 * is < 64 characters long
 		 */
 		rds_data.rt[rt_len++] = '\r';
 
-		for (uint8_t i = 0; i < RT_LENGTH + 1; i += 4) {
-			if (i >= rt_len) {
-				rds_state.rt_segments = i / 4;
-				break;
-			}
-			// We have reached the end of the text string
+		/* find out how many segments are needed */
+		while (i < rt_len) {
+			i += 4;
+			rds_state.rt_segments++;
 		}
 	} else {
 		// Default to 16 if RT is 64 characters long
@@ -578,6 +579,7 @@ void set_rds_rt(char *rt) {
 }
 
 void set_rds_ert(char *ert) {
+	uint8_t i = 0;
 	uint8_t ert_len = strlen(ert);
 
 	if (!ert[0]) {
@@ -590,12 +592,15 @@ void set_rds_ert(char *ert) {
 	memcpy(rds_data.ert, ert, ert_len);
 
 	if (ert_len < ERT_LENGTH) {
-		for (uint8_t i = 0; i < ERT_LENGTH + 1; i += 4) {
-			if (i >= ert_len) {
-				rds_state.ert_segments = i / 4;
-				break;
-			}
-			/* We have reached the end of the text string */
+		rds_state.ert_segments = 0;
+
+		/* increment to allow adding an '\r' in all cases */
+		ert_len++;
+
+		/* find out how many segments are needed */
+		while (i < ert_len) {
+			i += 4;
+			rds_state.ert_segments++;
 		}
 	} else {
 		/* Default to 32 if eRT is 128 characters long */
@@ -612,6 +617,7 @@ void set_rds_ps(char *ps) {
 }
 
 void set_rds_lps(char *lps) {
+	uint8_t i = 0;
 	uint8_t lps_len = strlen(lps);
 
 	rds_state.lps_update = 1;
@@ -619,13 +625,15 @@ void set_rds_lps(char *lps) {
 	memcpy(rds_data.lps, lps, lps_len);
 
 	if (lps_len < LPS_LENGTH) {
-		for (uint8_t i = 0; i < LPS_LENGTH; i += 4) {
-			if (i >= lps_len) {
-				rds_state.lps_segments = i / 4;
-				break;
-			}
+		rds_state.lps_segments = 0;
+
+		/* find out how many segments are needed */
+		while (i < lps_len) {
+			i += 4;
+			rds_state.lps_segments++;
 		}
 	} else {
+		/* default to 8 if LPS is 32 characters long */
 		rds_state.lps_segments = 8;
 	}
 }

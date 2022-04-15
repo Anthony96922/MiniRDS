@@ -31,7 +31,8 @@ extern unsigned int station_logo_len;
 
 static struct rft_t station_logo_group;
 
-static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, size_t len) {
+static void init_rft(struct rft_t *rft, uint8_t channel,
+	unsigned char *img, size_t len) {
 	uint32_t seg_counter = 0;
 	uint32_t chunk_counter = 0;
 	uint16_t chunk_size = 0;
@@ -70,7 +71,7 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 	}
 
 	while (chunk_counter < len) {
-		chunk_counter += (chunk_size * 5);
+		chunk_counter += chunk_size * 5;
 		rft->num_chunks++;
         }
 
@@ -80,7 +81,8 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 
 	for (uint16_t i = 0; i < rft->num_chunks; i++) {
 		memset(chunks, 0, chunk_size * 5);
-		memcpy(chunks, rft->file_data + (i * chunk_size * 5), chunk_size * 5);
+		memcpy(chunks,
+			rft->file_data + i * chunk_size * 5, chunk_size * 5);
 		rft->crcs[i] = crc16(chunks, chunk_size * 5);
 	}
 

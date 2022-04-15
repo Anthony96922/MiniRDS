@@ -36,7 +36,7 @@ static void create_wave(uint32_t rate, float freq,
 	double sin_sample, cos_sample;
 	/* used to determine if we have completed a cycle */
 	uint8_t zero_crossings = 0;
-	uint16_t i;
+	uint16_t i = 1;
 	const double w = M_2PI * freq;
 	double phase;
 
@@ -44,20 +44,20 @@ static void create_wave(uint32_t rate, float freq,
 	*sin_wave++ = 0.0f;
 	*cos_wave++ = 1.0f;
 
-	for (i = 1; i < rate; i++) {
+	while (zero_crossings < 2 && i < rate) {
 		phase = (double)i / (double)rate;
 		sin_sample = sin(w * phase);
 		cos_sample = cos(w * phase);
 		if (sin_sample > -0.1e-4 && sin_sample < 0.1e-4) {
-			if (++zero_crossings == 2) break;
-			*sin_wave++ = 0.0f;
-		} else {
-			*sin_wave++ = (float)sin_sample;
+			zero_crossings++;
+			sin_sample = 0.0f;
 		}
+		*sin_wave++ = (float)sin_sample;
 		*cos_wave++ = (float)cos_sample;
+		i++;
 	}
 
-	*max_phase = i;
+	*max_phase = i - 1;
 }
 
 /*
