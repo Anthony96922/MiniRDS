@@ -70,6 +70,16 @@ static struct {
 	uint8_t group;
 } ert_cfg;
 
+/* eRT+ */
+static struct {
+	uint8_t group;
+	uint8_t running;
+	uint8_t toggle;
+	uint8_t type[2];
+	uint8_t start[2];
+	uint8_t len[2];
+} ertp_cfg;
+
 
 static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
 
@@ -253,7 +263,7 @@ static void get_rds_lps_group(uint16_t *blocks) {
 
 	blocks[1] |= 15 << 12 | (lps_state & INT8_L3);
 	blocks[2] = lps_text[lps_state*4+0] << 8 | lps_text[lps_state*4+1];
-	blocks[2] = lps_text[lps_state*4+2] << 8 | lps_text[lps_state*4+3];
+	blocks[3] = lps_text[lps_state*4+2] << 8 | lps_text[lps_state*4+3];
 
 	lps_state++;
 	if (lps_state == rds_state.lps_segments) lps_state = 0;
@@ -273,6 +283,12 @@ static void init_ert(uint8_t group) {
 	}
 	register_oda(group, 0x6552 /* eRT AID */, 0);
 	ert_cfg.group = group;
+}
+
+/* eRT+ */
+static void init_ertp(uint8_t group) {
+	register_oda(group, 0x4BD8 /* eRT+ AID */, 0);
+	ertp_cfg.group = group;
 }
 
 /* RT+ group
@@ -345,7 +361,7 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 	}
 
 	/* Type 12A groups */
-	if (++group[ert_cfg.group] >= 6) {
+	if (++group[ert_cfg.group] >= 15) {
 		group[ert_cfg.group] = 0;
 		get_rds_ert_group(blocks);
 		return 1;
@@ -353,7 +369,7 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 
 	/* Type 15A groups */
 	if (rds_data.lps[0]) {
-		if (++group[GROUP_15A] >= 6) {
+		if (++group[GROUP_15A] >= 15) {
 			group[GROUP_15A] = 0;
 			get_rds_lps_group(blocks);
 			return 1;
@@ -484,6 +500,9 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	/* Assign the eRT AID to group 12A */
 	init_ert(GROUP_12A);
 
+	/* Assign the eRT+ AID to group 13A */
+	init_ertp(GROUP_13A);
+
 	/* initialize modulator objects */
 	init_rds_objects();
 
@@ -510,11 +529,6 @@ void set_rds_rt(char *rt) {
 	memset(rds_data.rt, 0, RT_LENGTH);
 	memcpy(rds_data.rt, rt, rt_len);
 
-	/* eRT: be the same as RT for now */
-	rds_state.ert_update = 1;
-	memset(rds_data.ert, '\r', ERT_LENGTH);
-	memcpy(rds_data.ert, rt, rt_len);
-
 	if (rt_len < RT_LENGTH) {
 		/* Terminate RT with '\r' (carriage return) if RT
 		 * is < 64 characters long
@@ -524,7 +538,6 @@ void set_rds_rt(char *rt) {
 		for (uint8_t i = 0; i < RT_LENGTH + 1; i += 4) {
 			if (i >= rt_len) {
 				rds_state.rt_segments = i / 4;
-				rds_state.ert_segments = i / 4;
 				break;
 			}
 			// We have reached the end of the text string
@@ -532,10 +545,31 @@ void set_rds_rt(char *rt) {
 	} else {
 		// Default to 16 if RT is 64 characters long
 		rds_state.rt_segments = 16;
-		rds_state.ert_segments = 32;
 	}
 
 	rds_state.rt_bursting = rds_state.rt_segments;
+}
+
+void set_rds_ert(char *ert) {
+	uint8_t ert_len = strlen(ert);
+
+	rds_state.ert_update = 1;
+	memset(rds_data.ert, '\r', ERT_LENGTH);
+	memcpy(rds_data.ert, ert, ert_len);
+
+	if (ert_len < ERT_LENGTH) {
+		for (uint8_t i = 0; i < ERT_LENGTH + 1; i += 4) {
+			if (i >= ert_len) {
+				rds_state.ert_segments = i / 4;
+				break;
+			}
+			/* We have reached the end of the text string */
+		}
+	} else {
+		/* Default to 64 if RT is 128 characters long */
+		rds_state.ert_segments = 64;
+	}
+
 	rds_state.ert_bursting = rds_state.ert_segments;
 }
 
@@ -549,7 +583,8 @@ void set_rds_lps(char *lps) {
 	uint8_t lps_len = strlen(lps);
 
 	rds_state.lps_update = 1;
-	memset(rds_data.ps, '\r', LPS_LENGTH);
+	memset(rds_data.lps, '\r', LPS_LENGTH);
+	memcpy(rds_data.lps, lps, lps_len);
 
 	if (lps_len < LPS_LENGTH) {
 		for (uint8_t i = 0; i < LPS_LENGTH; i += 4) {

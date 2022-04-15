@@ -39,7 +39,9 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 
 	/* image cannot be larger than 163840 bytes */
 	if (len > MAX_IMAGE_LEN) {
+#ifdef RDS2_DEBUG
 		fprintf(stderr, "Image too large!\n");
+#endif
 		return;
 	}
 
@@ -80,7 +82,6 @@ static void init_rft(struct rft_t *rft, uint8_t channel, unsigned char *img, siz
 		memset(chunks, 0, chunk_size * 5);
 		memcpy(chunks, rft->file_data + (i * chunk_size * 5), chunk_size * 5);
 		rft->crcs[i] = crc16(chunks, chunk_size * 5);
-		printf("0x%04x\n", rft->crcs[i]);
 	}
 
 	free(chunks);

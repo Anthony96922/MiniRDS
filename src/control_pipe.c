@@ -172,10 +172,19 @@ void poll_control_pipe() {
 			}
 			if (strncmp(cmd_buf, "LPS", 3) == 0) {
 				arg[LPS_LENGTH] = 0;
-				set_rds_lps(arg);
+				if (arg[0] == '-') {
+					char tmp[LPS_LENGTH];
+					tmp[0] = 0;
+					set_rds_lps(tmp);
 #ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "LPS set to \"%s\"\n", arg);
+					fprintf(stderr, "LPS disabled\n");
 #endif
+				} else {
+					set_rds_lps(arg);
+#ifdef CONTROL_PIPE_MESSAGES
+					fprintf(stderr, "LPS set to \"%s\"\n", arg);
+#endif
+				}
 			}
 		}
 
