@@ -1,11 +1,14 @@
 # MiniRDS
-Software RDS encoder with lots of features
 
-This program generates a realtime RDS signal. It is capable of RDS2 using on up to 3 additional subcarriers.
+### This is the world's first open-source RDS2 encoder!
+
+This program is designed for generating a realtime RDS signal. It is capable of RDS2 using up to 3 additional subcarriers.
 
 This is based on the RDS encoder from [Mpxgen](https://github.com/Anthony96922/mpxgen), which is currently not maintained.
 
 ![MiniRDS on Eton/Tecsun](doc/mpxgen.jpg)
+
+This software is currently used as the RDS encoder for KPSK in Los Angeles, CA, USA.
 
 #### Features
 - Low resource requirements
@@ -18,6 +21,7 @@ This is based on the RDS encoder from [Mpxgen](https://github.com/Anthony96922/m
 - Threading
 
 #### Planned features
+- UECP
 - Configuration file
 
 The RDS encoder in action: https://www.youtube.com/watch?v=ORAMpYhDcVY
