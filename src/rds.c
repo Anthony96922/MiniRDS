@@ -530,6 +530,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 
 	set_rds_pi(rds_params.pi);
 	set_rds_ps(rds_params.ps);
+	rds_state.ab = 1;
 	set_rds_rt(rds_params.rt);
 	set_rds_pty(rds_params.pty);
 	if (rds_params.ptyn[0]) {

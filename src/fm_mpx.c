@@ -79,7 +79,7 @@ void fm_mpx_init(uint32_t sample_rate) {
 }
 
 void fm_rds_get_frames(float *outbuf, size_t num_frames) {
-	uint16_t j = 0;
+	size_t j = 0;
 	float out;
 
 	for (size_t i = 0; i < num_frames; i++) {

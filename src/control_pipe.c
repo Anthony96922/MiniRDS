@@ -193,12 +193,12 @@ void poll_control_pipe() {
 					tmp[0] = 0;
 					set_rds_ert(tmp);
 #ifdef CONTROL_PIPE_MESSAGES
-					fprintf(stderr, "ERT disabled\n");
+					fprintf(stderr, "eRT disabled\n");
 #endif
 				} else {
 					set_rds_ert(arg);
 #ifdef CONTROL_PIPE_MESSAGES
-					fprintf(stderr, "ERT set to \"%s\"\n", arg);
+					fprintf(stderr, "eRT set to \"%s\"\n", arg);
 #endif
 				}
 			}

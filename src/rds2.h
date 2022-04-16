@@ -25,10 +25,11 @@ typedef struct rds2_oda_t {
 
 #define MAX_IMAGE_LEN	163840
 
+/* RDS2 File Transfer */
 typedef struct rft_t {
 	uint8_t channel;
 
-	char *file_data;
+	unsigned char *file_data;
 	size_t file_len;
 	uint8_t file_version;
 	uint8_t file_id;

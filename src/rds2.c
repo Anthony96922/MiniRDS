@@ -36,7 +36,8 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	uint32_t seg_counter = 0;
 	uint32_t chunk_counter = 0;
 	uint16_t chunk_size = 0;
-	unsigned char *chunks;
+	uint8_t *chunks;
+	uint16_t packet_size = 0;
 
 	/* image cannot be larger than 163840 bytes */
 	if (len > MAX_IMAGE_LEN) {
@@ -47,7 +48,6 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	}
 
 	rft->channel = channel;
-
 	rft->file_len = len;
 
 	/* determine how many segments we need */
@@ -70,20 +70,23 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 		chunk_size = 16;
 	}
 
+	/* RFT packet size = chunk size * 5 */
+	packet_size = chunk_size * 5;
+
 	while (chunk_counter < len) {
-		chunk_counter += chunk_size * 5;
+		chunk_counter += packet_size;
 		rft->num_chunks++;
-        }
+	}
 
 	rft->crcs = malloc(rft->num_chunks * sizeof(uint16_t));
 
-	chunks = malloc(chunk_size * 5);
+	chunks = malloc(packet_size);
 
 	for (uint16_t i = 0; i < rft->num_chunks; i++) {
-		memset(chunks, 0, chunk_size * 5);
+		memset(chunks, 0, packet_size);
 		memcpy(chunks,
-			rft->file_data + i * chunk_size * 5, chunk_size * 5);
-		rft->crcs[i] = crc16(chunks, chunk_size * 5);
+			rft->file_data + i * packet_size, packet_size);
+		rft->crcs[i] = crc16(chunks, packet_size);
 	}
 
 	free(chunks);
@@ -95,7 +98,10 @@ static void exit_rft(struct rft_t *rft) {
 }
 
 void init_rds2_encoder() {
+
+	/* create a new stream */
 	init_rft(&station_logo_group, 8, station_logo, station_logo_len);
+
 }
 
 static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
@@ -129,6 +135,10 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 	}
 }
 
+/*
+ * RFT metadata
+ *
+ */
 static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
 
 	/* function header */
@@ -213,6 +223,7 @@ static void get_rft_stream(uint16_t *blocks) {
  * RDS 2 group sequence
  */
 static void get_rds2_group(uint8_t stream_num, uint16_t *blocks) {
+
 	switch (stream_num) {
 	case 0:
 	case 1:
