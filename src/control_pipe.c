@@ -151,12 +151,11 @@ void poll_control_pipe() {
 					}
 #endif
 					set_rds_rtplus_tags(tags);
-				}
+				} else {
 #ifdef CONTROL_PIPE_MESSAGES
-				else {
 					fprintf(stderr, "Could not parse RT+ tag info.\n");
-				}
 #endif
+				}
 			}
 			if (strncmp(cmd_buf, "MPX", 3) == 0) {
 				uint8_t gains[5];
@@ -214,12 +213,11 @@ void poll_control_pipe() {
 					fprintf(stderr, "RT+ flags: running: %u, toggle: %u\n", rtp_flags[0], rtp_flags[1]);
 #endif
 					set_rds_rtplus_flags(rtp_flags[0], rtp_flags[1]);
-				}
+				} else {
 #ifdef CONTROL_PIPE_MESSAGES
-				else {
 					fprintf(stderr, "Could not parse RT+ flags.\n");
-				}
 #endif
+				}
 			}
 			if (strncmp(cmd_buf, "PTYN", 4) == 0) {
 				arg[8] = 0;
@@ -251,12 +249,11 @@ void poll_control_pipe() {
 					}
 #endif
 					set_rds_ertplus_tags(tags);
-				}
+				} else {
 #ifdef CONTROL_PIPE_MESSAGES
-				else {
 					fprintf(stderr, "Could not parse RT+ tag info.\n");
-				}
 #endif
+				}
 			}
 		}
 		if (strlen(cmd_buf) > 6 && cmd_buf[5] == ' ') {
@@ -269,12 +266,11 @@ void poll_control_pipe() {
 					fprintf(stderr, "eRT+ flags: running: %u, toggle: %u\n", ertp_flags[0], ertp_flags[1]);
 #endif
 					set_rds_ertplus_flags(ertp_flags[0], ertp_flags[1]);
-				}
+				} else {
 #ifdef CONTROL_PIPE_MESSAGES
-				else {
 					fprintf(stderr, "Could not parse eRT+ flags.\n");
-				}
 #endif
+				}
 			}
 		}
 	}
