@@ -24,9 +24,6 @@
 #include "rds2.h"
 #endif
 
-// needed for clock time
-#include <time.h>
-
 static struct rds_params_t rds_data;
 
 // RDS data controls

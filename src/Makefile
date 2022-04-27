@@ -20,7 +20,7 @@ RBDS = 1
 CONTROL_PIPE_MESSAGES = 0
 
 CC = gcc
-CFLAGS = -Wall -Wextra -pedantic -O2 -std=c11
+CFLAGS = -Wall -Wextra -pedantic -O2 -std=c18
 
 CFLAGS += -DVERSION=\"$(VERSION)\"
 

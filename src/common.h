@@ -23,7 +23,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
-#include <sys/time.h>
+/* needed for clock time */
+#include <time.h>
 
 /* workaround for missing pi definition */
 #ifndef M_PI
