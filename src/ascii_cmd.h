@@ -16,9 +16,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <fcntl.h>
-#include <poll.h>
+#define CMD_BUFFER_SIZE	160
+#define CTL_BUFFER_SIZE	(CMD_BUFFER_SIZE * 2)
+#define READ_TIMEOUT_MS	100
 
-extern int open_control_pipe(char *filename);
-extern void close_control_pipe();
-extern void poll_control_pipe();
+extern void process_ascii_cmd(char *cmd);

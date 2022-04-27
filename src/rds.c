@@ -38,9 +38,11 @@ static struct {
 	uint8_t rt_bursting;
 	uint8_t ptyn_update;
 
+#ifdef RDS2
 	/* Long PS */
 	uint8_t lps_update;
 	uint8_t lps_segments;
+#endif
 
 	/* eRT */
 	uint8_t ert_update;
@@ -65,6 +67,7 @@ static struct {
 	uint8_t len[2];
 } rtplus_cfg;
 
+#ifdef RDS2
 /* eRT */
 static struct {
 	uint8_t group;
@@ -79,7 +82,7 @@ static struct {
 	uint8_t start[2];
 	uint8_t len[2];
 } ertplus_cfg;
-
+#endif
 
 static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
 
@@ -89,61 +92,6 @@ static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
 	odas[oda_state.count].aid = aid;
 	odas[oda_state.count].scb = scb;
 	oda_state.count++;
-}
-
-/* Generates a CT (clock time) group if the minute has just changed
- * Returns 1 if the CT group was generated, 0 otherwise
- */
-static uint8_t get_rds_ct_group(uint16_t *blocks) {
-	static uint8_t latest_minutes;
-	struct tm utc, local;
-
-	// Check time
-	time_t now = time(NULL);
-	memcpy(&utc, gmtime(&now), sizeof(struct tm));
-
-	if (utc.tm_min != latest_minutes) {
-		// Generate CT group
-		latest_minutes = utc.tm_min;
-
-		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
-		uint16_t mjd = 14956 + utc.tm_mday +
-			(uint16_t)((utc.tm_year - l) * 365.25f) +
-			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
-
-		blocks[1] |= 4 << 12 | (mjd>>15);
-		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
-		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
-
-		memcpy(&local, localtime(&now), sizeof(struct tm));
-
-		int8_t offset = local.tm_hour - utc.tm_hour;
-		int8_t min_offset = local.tm_min - utc.tm_min;
-		int8_t half_offset;
-
-		/* half hour offset */
-		if (min_offset < 0) {
-			half_offset = -1;
-		} else if (min_offset > 0) {
-			half_offset = 1;
-		} else {
-			half_offset = 0;
-		}
-
-		/* if local and UTC are on different days */
-		if (utc.tm_hour <= 12)
-			offset -= 24;
-
-		/* determine negative offset */
-		uint8_t negative_offset = (offset + half_offset) < 0 ? 1 : 0;
-
-		blocks[3] |= (negative_offset & 1) << 5;
-		blocks[3] |= abs(2 * offset + half_offset) & INT8_L5;
-
-		return 1;
-	}
-
-	return 0;
 }
 
 /* Get the next AF entry
@@ -176,7 +124,7 @@ static uint16_t get_next_af() {
 /* PS group (0A)
  */
 static void get_rds_ps_group(uint16_t *blocks) {
-	static char ps_text[8];
+	static char ps_text[PS_LENGTH];
 	static uint8_t ps_state;
 
 	if (ps_state == 0 && rds_state.ps_update) {
@@ -248,6 +196,61 @@ static void get_rds_oda_group(uint16_t *blocks) {
 	if (oda_state.current == oda_state.count) oda_state.current = 0;
 }
 
+/* Generates a CT (clock time) group if the minute has just changed
+ * Returns 1 if the CT group was generated, 0 otherwise
+ */
+static uint8_t get_rds_ct_group(uint16_t *blocks) {
+	static uint8_t latest_minutes;
+	struct tm utc, local;
+
+	// Check time
+	time_t now = time(NULL);
+	memcpy(&utc, gmtime(&now), sizeof(struct tm));
+
+	if (utc.tm_min != latest_minutes) {
+		// Generate CT group
+		latest_minutes = utc.tm_min;
+
+		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
+		uint16_t mjd = 14956 + utc.tm_mday +
+			(uint16_t)((utc.tm_year - l) * 365.25f) +
+			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
+
+		blocks[1] |= 4 << 12 | (mjd>>15);
+		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
+		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
+
+		memcpy(&local, localtime(&now), sizeof(struct tm));
+
+		int8_t offset = local.tm_hour - utc.tm_hour;
+		int8_t min_offset = local.tm_min - utc.tm_min;
+		int8_t half_offset;
+
+		/* half hour offset */
+		if (min_offset < 0) {
+			half_offset = -1;
+		} else if (min_offset > 0) {
+			half_offset = 1;
+		} else {
+			half_offset = 0;
+		}
+
+		/* if local and UTC are on different days */
+		if (utc.tm_hour <= 12)
+			offset -= 24;
+
+		/* determine negative offset */
+		uint8_t negative_offset = (offset + half_offset) < 0 ? 1 : 0;
+
+		blocks[3] |= (negative_offset & 1) << 5;
+		blocks[3] |= abs(2 * offset + half_offset) & INT8_L5;
+
+		return 1;
+	}
+
+	return 0;
+}
+
 /* PTYN group (10A)
  */
 static void get_rds_ptyn_group(uint16_t *blocks) {
@@ -267,6 +270,7 @@ static void get_rds_ptyn_group(uint16_t *blocks) {
 	if (ptyn_state == 2) ptyn_state = 0;
 }
 
+#ifdef RDS2
 /* Long PS group (15A) */
 static void get_rds_lps_group(uint16_t *blocks) {
 	static char lps_text[LPS_LENGTH];
@@ -284,6 +288,7 @@ static void get_rds_lps_group(uint16_t *blocks) {
 	lps_state++;
 	if (lps_state == rds_state.lps_segments) lps_state = 0;
 }
+#endif
 
 // RT+
 static void init_rtplus(uint8_t group) {
@@ -291,6 +296,7 @@ static void init_rtplus(uint8_t group) {
 	rtplus_cfg.group = group;
 }
 
+#ifdef RDS2
 /* eRT */
 static void init_ert(uint8_t group) {
 	if (GET_GROUP_VER(group) == 1) {
@@ -306,6 +312,7 @@ static void init_ertp(uint8_t group) {
 	register_oda(group, 0x4BD8 /* eRT+ AID */, 0);
 	ertplus_cfg.group = group;
 }
+#endif
 
 /* RT+ group
  */
@@ -324,6 +331,7 @@ static void get_rds_rtplus_group(uint16_t *blocks) {
 		    (rtplus_cfg.len[1]   & INT8_L5);
 }
 
+#ifdef RDS2
 /* eRT group */
 static void get_rds_ert_group(uint16_t *blocks) {
 	static char ert_text[ERT_LENGTH];
@@ -364,6 +372,7 @@ static void get_rds_ertplus_group(uint16_t *blocks) {
 	blocks[3] |= (ertplus_cfg.start[1] & INT8_L6) << 5;
 	blocks[3] |= ertplus_cfg.len[1] & INT8_L5;
 }
+#endif
 
 /* Lower priority groups are placed in a subsequence
  */
@@ -394,6 +403,7 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 		return 1;
 	}
 
+#ifdef RDS2
 	/* Type 12A groups */
 	if (rds_data.ert[0]) {
 		if (++group[ert_cfg.group] >= 3) {
@@ -418,6 +428,7 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 			return 1;
 		}
 	}
+#endif
 
 	return 0;
 }
@@ -545,11 +556,13 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	// Assign the RT+ AID to group 11A
 	init_rtplus(GROUP_11A);
 
+#ifdef RDS2
 	/* Assign the eRT AID to group 12A */
 	init_ert(GROUP_12A);
 
 	/* Assign the eRT+ AID to group 13A */
 	init_ertp(GROUP_13A);
+#endif
 
 	/* initialize modulator objects */
 	init_rds_objects();
@@ -599,6 +612,7 @@ void set_rds_rt(char *rt) {
 	rds_state.rt_bursting = rds_state.rt_segments;
 }
 
+#ifdef RDS2
 void set_rds_ert(char *ert) {
 	uint8_t i = 0;
 	uint8_t ert_len = strlen(ert);
@@ -630,6 +644,7 @@ void set_rds_ert(char *ert) {
 
 	rds_state.ert_bursting = rds_state.ert_segments;
 }
+#endif
 
 void set_rds_ps(char *ps) {
 	rds_state.ps_update = 1;
@@ -637,6 +652,7 @@ void set_rds_ps(char *ps) {
 	memcpy(rds_data.ps, ps, strlen(ps));
 }
 
+#ifdef RDS2
 void set_rds_lps(char *lps) {
 	uint8_t i = 0;
 	uint8_t lps_len = strlen(lps);
@@ -658,6 +674,7 @@ void set_rds_lps(char *lps) {
 		rds_state.lps_segments = 8;
 	}
 }
+#endif
 
 void set_rds_rtplus_flags(uint8_t running, uint8_t toggle) {
 	rtplus_cfg.running	= running & 1;
@@ -673,6 +690,7 @@ void set_rds_rtplus_tags(uint8_t *tags) {
 	rtplus_cfg.len[1]	= tags[5] & INT8_L5;
 }
 
+#ifdef RDS2
 /* eRT+ */
 void set_rds_ertplus_flags(uint8_t running, uint8_t toggle) {
 	ertplus_cfg.running	= running & 1;
@@ -687,6 +705,7 @@ void set_rds_ertplus_tags(uint8_t *tags) {
 	ertplus_cfg.start[1]	= tags[4] & INT8_L6;
 	ertplus_cfg.len[1]	= tags[5] & INT8_L5;
 }
+#endif
 
 /*
  * AF stuff

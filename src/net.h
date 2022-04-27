@@ -18,7 +18,10 @@
 
 #include <fcntl.h>
 #include <poll.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
-extern int open_control_pipe(char *filename);
-extern void close_control_pipe();
-extern void poll_control_pipe();
+extern int open_ctl_socket(uint16_t port, uint8_t proto);
+extern void close_ctl_socket();
+extern void poll_ctl_socket();

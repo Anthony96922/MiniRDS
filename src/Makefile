@@ -25,7 +25,7 @@ CFLAGS = -Wall -Wextra -pedantic -O2 -std=c11
 CFLAGS += -DVERSION=\"$(VERSION)\"
 
 obj = minirds.o waveforms.o rds.o fm_mpx.o control_pipe.o osc.o \
-	resampler.o modulator.o lib.o
+	resampler.o modulator.o lib.o net.o ascii_cmd.o
 libs = -lm -lsamplerate -lpthread -lao
 
 ifeq ($(RDS2), 1)

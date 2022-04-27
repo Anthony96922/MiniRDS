@@ -26,6 +26,7 @@
 #include "fm_mpx.h"
 #include "control_pipe.h"
 #include "resampler.h"
+#include "net_socket.h"
 
 static uint8_t stop_rds;
 
@@ -66,6 +67,16 @@ static void *control_pipe_worker() {
 	}
 
 	close_control_pipe();
+	pthread_exit(NULL);
+}
+
+static void *net_ctl_worker() {
+	while (!stop_rds) {
+		poll_ctl_socket();
+		sleep(1);
+	}
+
+	close_ctl_socket();
 	pthread_exit(NULL);
 }
 
@@ -145,6 +156,9 @@ int main(int argc, char **argv) {
 	float *out_buffer;
 	char *dev_out;
 
+	uint16_t port = 0;
+	uint8_t proto = 1;
+
 	int8_t r;
 	size_t frames;
 
@@ -161,6 +175,11 @@ int main(int argc, char **argv) {
 	pthread_t control_pipe_thread;
 	pthread_mutex_t control_pipe_mutex = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t control_pipe_cond;
+
+	/* network control socket */
+	pthread_t net_ctl_thread;
+	pthread_mutex_t net_ctl_mutex = PTHREAD_MUTEX_INITIALIZER;
+	pthread_cond_t net_ctl_cond;
 
 	const char	*short_opt = "m:R:i:s:r:p:T:A:P:"
 #ifdef RBDS
@@ -266,6 +285,8 @@ done_parsing_opts:
 	// Initialize pthread stuff
 	pthread_mutex_init(&control_pipe_mutex, NULL);
 	pthread_cond_init(&control_pipe_cond, NULL);
+	pthread_mutex_init(&net_ctl_mutex, NULL);
+	pthread_cond_init(&net_ctl_cond, NULL);
 	pthread_attr_init(&attr);
 
 	// Setup buffers
@@ -332,6 +353,22 @@ done_parsing_opts:
 		}
 	}
 
+	/* ASCII control over network socket */
+	if (port) {
+		if (open_ctl_socket(port, proto) == 0) {
+			fprintf(stderr, "Reading control commands on port %d.\n", port);
+			r = pthread_create(&net_ctl_thread, &attr, net_ctl_worker, NULL);
+			if (r < 0) {
+				fprintf(stderr, "Could not create network control thread.\n");
+				goto exit;
+			} else {
+				fprintf(stderr, "Created network control thread.\n");
+			}
+		} else {
+			fprintf(stderr, "Failed to open port %d.\n", port);
+		}
+	}
+
 	for (;;) {
 		fm_rds_get_frames(mpx_buffer, NUM_MPX_FRAMES_IN);
 
@@ -356,9 +393,15 @@ done_parsing_opts:
 exit:
 	if (control_pipe[0]) {
 		// shut down threads
-		fprintf(stderr, "Waiting for threads to shut down.\n");
+		fprintf(stderr, "Waiting for pipe thread to shut down.\n");
 		pthread_cond_signal(&control_pipe_cond);
 		pthread_join(control_pipe_thread, NULL);
+	}
+
+	if (port) {
+		fprintf(stderr, "Waiting for net socket thread to shut down.\n");
+		pthread_cond_signal(&net_ctl_cond);
+		pthread_join(net_ctl_thread, NULL);
 	}
 
 	pthread_attr_destroy(&attr);
