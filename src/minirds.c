@@ -26,7 +26,7 @@
 #include "fm_mpx.h"
 #include "control_pipe.h"
 #include "resampler.h"
-#include "net_socket.h"
+#include "net.h"
 
 static uint8_t stop_rds;
 

@@ -24,6 +24,17 @@
  *
  */
 
+/* needed workaround implicit declaration */
+extern int nanosleep(const struct timespec *req, struct timespec *rem);
+
+/* millisecond sleep */
+void msleep(unsigned long ms) {
+	struct timespec ts;
+	ts.tv_sec = ms / 1000ul;		/* whole seconds */
+	ts.tv_nsec = (ms % 1000ul) * 1000;	/* remainder, in nanoseconds */
+	nanosleep(&ts, NULL);
+}
+
 // RDS PTY list
 static char *ptys[32] = {
 #ifdef RBDS

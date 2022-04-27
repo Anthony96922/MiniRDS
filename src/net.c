@@ -22,7 +22,7 @@
  */
 
 #include "common.h"
-#include "net_socket.h"
+#include "net.h"
 #include "ascii_cmd.h"
 
 static int listener_fd; /* fd of the listener */

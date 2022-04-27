@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <sys/time.h>
 
 /* workaround for missing pi definition */
 #ifndef M_PI
@@ -30,5 +31,3 @@
 #endif
 
 #define M_2PI	(M_PI * 2.0)
-
-extern void usleep(unsigned int us);
