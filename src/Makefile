@@ -16,9 +16,6 @@ RDS2_DEBUG = 0
 # Uncomment for NRSC LF/MF AF coding and PTY list
 RBDS = 1
 
-# Set to 1 for control pipe return messages
-CONTROL_PIPE_MESSAGES = 0
-
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -O2 -std=c18
 

@@ -19,14 +19,18 @@
 #include "common.h"
 #include "rds.h"
 #include "fm_mpx.h"
+#include "lib.h"
 
 /*
  * If a command is received, process it and update the RDS data.
  *
  */
 void process_ascii_cmd(char *cmd) {
-	uint8_t cmd_len = strlen(cmd);
 	char *arg;
+	uint8_t cmd_len = 0;
+
+	while (cmd[cmd_len] != 0 && cmd_len < 255)
+		cmd_len++;
 
 	if (cmd_len > 3 && cmd[2] == ' ') {
 		arg = cmd + 3;
@@ -35,52 +39,28 @@ void process_ascii_cmd(char *cmd) {
 			arg[4] = 0;
 			uint16_t pi = strtoul(arg, NULL, 16);
 			set_rds_pi(pi);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "PI set to \"%04X\"\n", pi);
-#endif
 		}
 		if (strncmp(cmd, "PS", 2) == 0) {
-			arg[8] = 0;
+			arg[PS_LENGTH] = 0;
 			set_rds_ps(arg);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "PS set to \"%s\"\n", arg);
-#endif
 		}
 		if (strncmp(cmd, "RT", 2) == 0) {
-			arg[64] = 0;
+			arg[RT_LENGTH] = 0;
 			set_rds_rt(arg);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "RT set to \"%s\"\n", arg);
-#endif
 		}
 		if (strncmp(cmd, "TA", 2) == 0) {
-			uint8_t ta = arg[0] == '1' ? 1 : 0;
-			set_rds_ta(ta);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "Set TA to %s\n", ta ? "ON" : "OFF");
-#endif
+			set_rds_ta(arg[0] == '1' ? 1 : 0);
 		}
 		if (strncmp(cmd, "TP", 2) == 0) {
-			uint8_t tp = arg[0] == '1' ? 1 : 0;
-			set_rds_tp(tp);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "Set TP to %s\n", tp ? "ON" : "OFF");
-#endif
+			set_rds_tp(arg[0] == '1' ? 1 : 0);
 		}
 		if (strncmp(cmd, "MS", 2) == 0) {
-			uint8_t ms = arg[0] == '1' ? 1 : 0;
-			set_rds_ms(ms);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "Set MS to %s\n", ms ? "ON" : "OFF");
-#endif
+			set_rds_ms(arg[0] == '1' ? 1 : 0);
 		}
 		if (strncmp(cmd, "DI", 2) == 0) {
 			arg[2] = 0;
-			uint8_t di = strtoul(arg, NULL, 10) & 15;
+			uint8_t di = strtoul(arg, NULL, 10);
 			set_rds_di(di);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "DI value set to %u\n", di);
-#endif
 		}
 	}
 
@@ -88,35 +68,22 @@ void process_ascii_cmd(char *cmd) {
 		arg = cmd + 4;
 
 		if (strncmp(cmd, "PTY", 3) == 0) {
-			uint8_t pty = strtoul(arg, NULL, 10) & 31;
+			uint8_t pty = strtoul(arg, NULL, 10);
 			set_rds_pty(pty);
-#ifdef CONTROL_PIPE_MESSAGES
-			fprintf(stderr, "PTY set to %u\n", pty);
-#endif
 		}
 		if (strncmp(cmd, "RTP", 3) == 0) {
 			uint8_t tags[8];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
-				&tags[4], &tags[5]
-			) == 6) {
-#ifdef CONTROL_PIPE_MESSAGES
-				for (uint8_t i = 0; i < 2; i++) {
-					fprintf(stderr,
-						"RT+ tag %u: type: %u, start: %u, length: %u\n",
-						i, tags[i*3+0], tags[i*3+1], tags[i*3+2]);
-				}
-#endif
+				&tags[4], &tags[5]) == 6) {
 				set_rds_rtplus_tags(tags);
-			} else {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "Could not parse RT+ tag info.\n");
-#endif
 			}
 		}
 		if (strncmp(cmd, "MPX", 3) == 0) {
 			uint8_t gains[5];
-			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu", &gains[0], &gains[1], &gains[2], &gains[3], &gains[4]) == 5) {
+			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu",
+				&gains[0], &gains[1], &gains[2], &gains[3],
+				&gains[4]) == 5) {
 				for (uint8_t i = 0; i < 5; i++) {
 					set_carrier_volume(i, gains[i]);
 				}
@@ -133,14 +100,8 @@ void process_ascii_cmd(char *cmd) {
 				char tmp[1];
 				tmp[0] = 0;
 				set_rds_lps(tmp);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "LPS disabled\n");
-#endif
 			} else {
 				set_rds_lps(arg);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "LPS set to \"%s\"\n", arg);
-#endif
 			}
 		}
 		if (strncmp(cmd, "ERT", 3) == 0) {
@@ -149,14 +110,8 @@ void process_ascii_cmd(char *cmd) {
 				char tmp[1];
 				tmp[0] = 0;
 				set_rds_ert(tmp);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "eRT disabled\n");
-#endif
 			} else {
 				set_rds_ert(arg);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "eRT set to \"%s\"\n", arg);
-#endif
 			}
 		}
 #endif /* RDS2 */
@@ -167,15 +122,10 @@ void process_ascii_cmd(char *cmd) {
 
 		if (strncmp(cmd, "RTPF", 4) == 0) {
 			uint8_t rtp_flags[2];
-			if (sscanf(arg, "%hhu,%hhu", &rtp_flags[0], &rtp_flags[1]) == 2) {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "RT+ flags: running: %u, toggle: %u\n", rtp_flags[0], rtp_flags[1]);
-#endif
-				set_rds_rtplus_flags(rtp_flags[0], rtp_flags[1]);
-			} else {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "Could not parse RT+ flags.\n");
-#endif
+			if (sscanf(arg, "%hhu,%hhu",
+				&rtp_flags[0], &rtp_flags[1]) == 2) {
+				set_rds_rtplus_flags(
+					rtp_flags[0], rtp_flags[1]);
 			}
 		}
 		if (strncmp(cmd, "PTYN", 4) == 0) {
@@ -184,14 +134,8 @@ void process_ascii_cmd(char *cmd) {
 				char tmp[1];
 				tmp[0] = 0;
 				set_rds_ptyn(tmp);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "PTYN disabled\n");
-#endif
 			} else {
 				set_rds_ptyn(arg);
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "PTYN set to \"%s\"\n", arg);
-#endif
 			}
 		}
 #ifdef RDS2
@@ -199,20 +143,8 @@ void process_ascii_cmd(char *cmd) {
 			uint8_t tags[8];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
-				&tags[4], &tags[5]
-			) == 6) {
-#ifdef CONTROL_PIPE_MESSAGES
-				for (uint8_t i = 0; i < 2; i++) {
-					fprintf(stderr,
-						"RT+ tag %u: type: %u, start: %u, length: %u\n",
-						i, tags[i*3+0], tags[i*3+1], tags[i*3+2]);
-				}
-#endif
+				&tags[4], &tags[5]) == 6) {
 				set_rds_ertplus_tags(tags);
-			} else {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "Could not parse RT+ tag info.\n");
-#endif
 			}
 		}
 #endif /* RDS2 */
@@ -224,15 +156,10 @@ void process_ascii_cmd(char *cmd) {
 
 		if (strncmp(cmd, "ERTPF", 5) == 0) {
 			uint8_t ertp_flags[2];
-			if (sscanf(arg, "%hhu,%hhu", &ertp_flags[0], &ertp_flags[1]) == 2) {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "eRT+ flags: running: %u, toggle: %u\n", ertp_flags[0], ertp_flags[1]);
-#endif
-				set_rds_ertplus_flags(ertp_flags[0], ertp_flags[1]);
-			} else {
-#ifdef CONTROL_PIPE_MESSAGES
-				fprintf(stderr, "Could not parse eRT+ flags.\n");
-#endif
+			if (sscanf(arg, "%hhu,%hhu",
+				&ertp_flags[0], &ertp_flags[1]) == 2) {
+				set_rds_ertplus_flags(
+					ertp_flags[0], ertp_flags[1]);
 			}
 		}
 	}

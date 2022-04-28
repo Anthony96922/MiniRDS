@@ -27,6 +27,7 @@
 #include "control_pipe.h"
 #include "resampler.h"
 #include "net.h"
+#include "lib.h"
 
 static uint8_t stop_rds;
 
@@ -241,11 +242,11 @@ keep_parsing_opts:
 			break;
 
 		case 'p': //pty
-			rds_params.pty = strtoul(optarg, NULL, 10) & 31;
+			rds_params.pty = strtoul(optarg, NULL, 10);
 			break;
 
 		case 'T': //tp
-			rds_params.tp = strtoul(optarg, NULL, 10) & 1;
+			rds_params.tp = strtoul(optarg, NULL, 10);
 			break;
 
 		case 'A': //af

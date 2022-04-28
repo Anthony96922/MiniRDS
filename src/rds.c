@@ -18,11 +18,11 @@
 
 #include "common.h"
 #include "rds.h"
-#include "lib.h"
 #include "modulator.h"
 #ifdef RDS2
 #include "rds2.h"
 #endif
+#include "lib.h"
 
 static struct rds_params_t rds_data;
 
@@ -184,8 +184,8 @@ static void get_rds_oda_group(uint16_t *blocks) {
 	// select ODA
 	struct rds_oda_t this_oda = odas[oda_state.current];
 
-	blocks[1] |= GET_GROUP_TYPE(this_oda.group) << 1 |
-		     GET_GROUP_VER(this_oda.group);
+	blocks[1] |= GET_GROUP_TYPE(this_oda.group) << 1;
+	blocks[1] |= GET_GROUP_VER(this_oda.group);
 	blocks[2] = this_oda.scb;
 	blocks[3] = this_oda.aid;
 
@@ -297,7 +297,7 @@ static void init_rtplus(uint8_t group) {
 /* eRT */
 static void init_ert(uint8_t group) {
 	if (GET_GROUP_VER(group) == 1) {
-		fprintf(stderr, "B version groups cannot be used for eRT\n");
+		/* B version groups cannot be used for eRT */
 		return;
 	}
 	register_oda(group, 0x6552 /* eRT AID */, 0);
@@ -315,17 +315,19 @@ static void init_ertp(uint8_t group) {
  */
 static void get_rds_rtplus_group(uint16_t *blocks) {
 	// RT+ block format
-	blocks[1] |= GET_GROUP_TYPE(rtplus_cfg.group) << 12 |
-		     GET_GROUP_VER(rtplus_cfg.group) << 11 |
-		     rtplus_cfg.toggle << 4 | rtplus_cfg.running << 3 |
-		    (rtplus_cfg.type[0]  & INT8_U5) >> 3;
-	blocks[2] = (rtplus_cfg.type[0]  & INT8_L3) << 13 |
-		    (rtplus_cfg.start[0] & INT8_L6) << 7 |
-		    (rtplus_cfg.len[0]   & INT8_L6) << 1 |
-		    (rtplus_cfg.type[1]  & INT8_U3) >> 5;
-	blocks[3] = (rtplus_cfg.type[1]  & INT8_L5) << 11 |
-		    (rtplus_cfg.start[1] & INT8_L6) << 5 |
-		    (rtplus_cfg.len[1]   & INT8_L5);
+	blocks[1] |= GET_GROUP_TYPE(rtplus_cfg.group) << 12;
+	blocks[1] |= GET_GROUP_VER(rtplus_cfg.group) << 11;
+	blocks[1] |= rtplus_cfg.toggle << 4 | rtplus_cfg.running << 3;
+	blocks[1] |= (rtplus_cfg.type[0] & INT8_U5) >> 3;
+
+	blocks[2] = (rtplus_cfg.type[0] & INT8_L3) << 13;
+	blocks[2] |= (rtplus_cfg.start[0] & INT8_L6) << 7;
+	blocks[2] |= (rtplus_cfg.len[0] & INT8_L6) << 1;
+	blocks[2] |= (rtplus_cfg.type[1] & INT8_U3) >> 5;
+
+	blocks[3] = (rtplus_cfg.type[1] & INT8_L5) << 11;
+	blocks[3] |= (rtplus_cfg.start[1] & INT8_L6) << 5;
+	blocks[3] |= rtplus_cfg.len[1] & INT8_L5;
 }
 
 #ifdef RDS2
@@ -470,65 +472,14 @@ void get_rds_bits(uint8_t *bits) {
 	add_checkwords(out_blocks, bits);
 }
 
-static void show_af_list(struct rds_af_t af_list) {
-	float freq;
-	uint8_t af_is_lf_mf = 0;
-
-	fprintf(stderr, "AF: %u,", af_list.num_afs);
-
-	for (uint8_t i = 0; i < af_list.num_entries; i++) {
-		if (af_list.afs[i] == AF_CODE_LFMF_FOLLOWS) {
-			// The next AF will be for LF/MF
-			af_is_lf_mf = 1;
-		} else {
-			if (af_is_lf_mf) {
-#ifdef RBDS
-				// MF (FCC)
-				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
-				fprintf(stderr, " (MF)%.0f", freq);
-#else
-				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { // LF
-					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
-					fprintf(stderr, " (LF)%.0f", freq);
-				} else { //if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) { // MF
-					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
-					fprintf(stderr, " (MF)%.0f", freq);
-				}
-#endif
-			} else {
-				// FM
-				freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
-				fprintf(stderr, " %.1f", freq);
-			}
-			af_is_lf_mf = 0;
-		}
-	}
-
-	fprintf(stderr, "\n");
-}
-
 void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 
 	if (call_sign[3]) {
 #ifdef RBDS
-		uint16_t new_pi;
-		if ((new_pi = callsign2pi(call_sign))) {
-			fprintf(stderr, "Calculated PI code from callsign '%s'.\n", call_sign);
-			rds_params.pi = new_pi;
-		} else {
-			fprintf(stderr, "Invalid callsign '%s'.\n", call_sign);
-		}
+		uint16_t new_pi = callsign2pi(call_sign);
+		if (new_pi) rds_params.pi = new_pi;
 #endif
 	}
-
-	fprintf(stderr, "RDS Options\n");
-	fprintf(stderr, "PI: %04X, PS: \"%s\", PTY: %u (%s), TP: %s\n",
-		rds_params.pi,
-		rds_params.ps,
-		rds_params.pty,
-		get_pty(rds_params.pty),
-		rds_params.tp ? "ON" : "OFF");
-	fprintf(stderr, "RT: \"%s\"\n", rds_params.rt);
 
 	// AF
 	if (rds_params.af.num_afs) {
@@ -541,10 +492,8 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	rds_state.ab = 1;
 	set_rds_rt(rds_params.rt);
 	set_rds_pty(rds_params.pty);
-	if (rds_params.ptyn[0]) {
-		fprintf(stderr, "PTYN: \"%s\"\n", rds_params.ptyn);
+	if (rds_params.ptyn[0])
 		set_rds_ptyn(rds_params.ptyn);
-	}
 	set_rds_tp(rds_params.tp);
 	set_rds_ct(1);
 	set_rds_ms(1);
@@ -581,23 +530,23 @@ void set_rds_pi(uint16_t pi_code) {
 }
 
 void set_rds_rt(char *rt) {
-	uint8_t i = 0;
-	uint8_t rt_len = strlen(rt);
+	uint8_t i = 0, len = 0;
 
 	rds_state.rt_update = 1;
-	memset(rds_data.rt, 0, RT_LENGTH);
-	memcpy(rds_data.rt, rt, rt_len);
+	memset(rds_data.rt, ' ', RT_LENGTH);
+	while (*rt != 0 && len <= RT_LENGTH)
+		rds_data.rt[len++] = *rt++;
 
-	if (rt_len < RT_LENGTH) {
+	if (len < RT_LENGTH) {
 		rds_state.rt_segments = 0;
 
 		/* Terminate RT with '\r' (carriage return) if RT
 		 * is < 64 characters long
 		 */
-		rds_data.rt[rt_len++] = '\r';
+		rds_data.rt[len++] = '\r';
 
 		/* find out how many segments are needed */
-		while (i < rt_len) {
+		while (i < len) {
 			i += 4;
 			rds_state.rt_segments++;
 		}
@@ -611,8 +560,7 @@ void set_rds_rt(char *rt) {
 
 #ifdef RDS2
 void set_rds_ert(char *ert) {
-	uint8_t i = 0;
-	uint8_t ert_len = strlen(ert);
+	uint8_t i = 0, len = 0;
 
 	if (!ert[0]) {
 		memset(rds_data.ert, 0, ERT_LENGTH);
@@ -621,16 +569,17 @@ void set_rds_ert(char *ert) {
 
 	rds_state.ert_update = 1;
 	memset(rds_data.ert, '\r', ERT_LENGTH);
-	memcpy(rds_data.ert, ert, ert_len);
+	while (*ert != 0 && len <= ERT_LENGTH)
+		rds_data.ert[len++] = *ert++;
 
-	if (ert_len < ERT_LENGTH) {
+	if (len < ERT_LENGTH) {
 		rds_state.ert_segments = 0;
 
 		/* increment to allow adding an '\r' in all cases */
-		ert_len++;
+		len++;
 
 		/* find out how many segments are needed */
-		while (i < ert_len) {
+		while (i < len) {
 			i += 4;
 			rds_state.ert_segments++;
 		}
@@ -644,25 +593,28 @@ void set_rds_ert(char *ert) {
 #endif
 
 void set_rds_ps(char *ps) {
+	uint8_t len = 0;
+
 	rds_state.ps_update = 1;
 	memset(rds_data.ps, ' ', PS_LENGTH);
-	memcpy(rds_data.ps, ps, strlen(ps));
+	while (*ps != 0 && len <= PS_LENGTH)
+		rds_data.ps[len++] = *ps++;
 }
 
 #ifdef RDS2
 void set_rds_lps(char *lps) {
-	uint8_t i = 0;
-	uint8_t lps_len = strlen(lps);
+	uint8_t i = 0, len = 0;
 
 	rds_state.lps_update = 1;
 	memset(rds_data.lps, '\r', LPS_LENGTH);
-	memcpy(rds_data.lps, lps, lps_len);
+	while (*lps != 0 && len <= LPS_LENGTH)
+		rds_data.lps[len++] = *lps++;
 
-	if (lps_len < LPS_LENGTH) {
+	if (len < LPS_LENGTH) {
 		rds_state.lps_segments = 0;
 
 		/* find out how many segments are needed */
-		while (i < lps_len) {
+		while (i < len) {
 			i += 4;
 			rds_state.lps_segments++;
 		}
@@ -704,55 +656,6 @@ void set_rds_ertplus_tags(uint8_t *tags) {
 }
 #endif
 
-/*
- * AF stuff
- */
-uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
-	uint16_t af;
-
-	// check if the AF list is full
-	if (af_list->num_afs + 1 > MAX_AFS) {
-		fprintf(stderr, "Too many AF entries.\n");
-		return 1;
-	}
-
-	// check if new frequency is valid
-	if (freq >= 87.6f && freq <= 107.9f) { // FM
-		af = (uint16_t)(freq * 10.0f) - 875;
-		af_list->afs[af_list->num_entries] = af;
-		af_list->num_entries += 1;
-#ifdef RBDS
-	} else if (freq >= 530.0f && freq <= 1610.0f) {
-		af = ((uint16_t)(freq - 530.0f) / 10) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
-		af_list->num_entries += 2;
-	} else {
-		fprintf(stderr, "AF must be between 87.6-107.9 MHz "
-			"or 530-1610 kHz (with 10 kHz spacing)\n");
-#else
-	} else if (freq >= 153.0f && freq <= 279.0f) {
-		af = ((uint16_t)(freq - 153.0f) / 9) + 1;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
-		af_list->num_entries += 2;
-	} else if (freq >= 531.0f && freq <= 1602.0f) {
-		af = ((uint16_t)(freq - 531.0f) / 9) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
-		af_list->num_entries += 2;
-	} else {
-		fprintf(stderr, "AF must be between 87.6-107.9 MHz, "
-			"153-279 kHz or 531-1602 kHz (with 9 kHz spacing)\n");
-#endif
-		return 1;
-	}
-
-	af_list->num_afs++;
-
-	return 0;
-}
-
 void set_rds_af(struct rds_af_t new_af_list) {
 	memcpy(&rds_data.af, &new_af_list, sizeof(struct rds_af_t));
 }
@@ -762,35 +665,39 @@ void clear_rds_af() {
 }
 
 void set_rds_pty(uint8_t pty) {
-	rds_data.pty = pty;
+	rds_data.pty = pty & 31;
 }
 
 void set_rds_ptyn(char *ptyn) {
-	rds_state.ptyn_update = 1;
-	if (ptyn[0]) {
-		memset(rds_data.ptyn, ' ', PTYN_LENGTH);
-		memcpy(rds_data.ptyn, ptyn, strlen(ptyn));
-	} else {
+	uint8_t len = 0;
+
+	if (!ptyn[0]) {
 		memset(rds_data.ptyn, 0, PTYN_LENGTH);
+		return;
 	}
+
+	rds_state.ptyn_update = 1;
+	memset(rds_data.ptyn, ' ', PTYN_LENGTH);
+	while (*ptyn != 0 && len <= PTYN_LENGTH)
+		rds_data.ptyn[len++] = *ptyn++;
 }
 
 void set_rds_ta(uint8_t ta) {
-	rds_data.ta = ta;
+	rds_data.ta = ta & 1;
 }
 
 void set_rds_tp(uint8_t tp) {
-	rds_data.tp = tp;
+	rds_data.tp = tp & 1;
 }
 
 void set_rds_ms(uint8_t ms) {
-	rds_data.ms = ms;
+	rds_data.ms = ms & 1;
 }
 
 void set_rds_di(uint8_t di) {
-	rds_data.di = di;
+	rds_data.di = di & 15;
 }
 
 void set_rds_ct(uint8_t ct) {
-	rds_data.tx_ctime = ct;
+	rds_data.tx_ctime = ct & 1;
 }

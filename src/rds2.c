@@ -18,8 +18,8 @@
 
 #include "common.h"
 #include "rds.h"
-#include "lib.h"
 #include "rds2.h"
+#include "lib.h"
 
 /*
  * RDS2-specific stuff
