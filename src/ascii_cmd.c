@@ -37,30 +37,35 @@ void process_ascii_cmd(char *cmd) {
 
 		if (strncmp(cmd, "PI", 2) == 0) {
 			arg[4] = 0;
-			uint16_t pi = strtoul(arg, NULL, 16);
-			set_rds_pi(pi);
+			set_rds_pi(strtoul(arg, NULL, 16));
+			return;
 		}
 		if (strncmp(cmd, "PS", 2) == 0) {
 			arg[PS_LENGTH] = 0;
 			set_rds_ps(arg);
+			return;
 		}
 		if (strncmp(cmd, "RT", 2) == 0) {
 			arg[RT_LENGTH] = 0;
 			set_rds_rt(arg);
+			return;
 		}
 		if (strncmp(cmd, "TA", 2) == 0) {
 			set_rds_ta(arg[0] == '1' ? 1 : 0);
+			return;
 		}
 		if (strncmp(cmd, "TP", 2) == 0) {
 			set_rds_tp(arg[0] == '1' ? 1 : 0);
+			return;
 		}
 		if (strncmp(cmd, "MS", 2) == 0) {
 			set_rds_ms(arg[0] == '1' ? 1 : 0);
+			return;
 		}
 		if (strncmp(cmd, "DI", 2) == 0) {
 			arg[2] = 0;
-			uint8_t di = strtoul(arg, NULL, 10);
-			set_rds_di(di);
+			set_rds_di(strtoul(arg, NULL, 10));
+			return;
 		}
 	}
 
@@ -68,8 +73,8 @@ void process_ascii_cmd(char *cmd) {
 		arg = cmd + 4;
 
 		if (strncmp(cmd, "PTY", 3) == 0) {
-			uint8_t pty = strtoul(arg, NULL, 10);
-			set_rds_pty(pty);
+			set_rds_pty(strtoul(arg, NULL, 10));
+			return;
 		}
 		if (strncmp(cmd, "RTP", 3) == 0) {
 			uint8_t tags[8];
@@ -78,6 +83,7 @@ void process_ascii_cmd(char *cmd) {
 				&tags[4], &tags[5]) == 6) {
 				set_rds_rtplus_tags(tags);
 			}
+			return;
 		}
 		if (strncmp(cmd, "MPX", 3) == 0) {
 			uint8_t gains[5];
@@ -88,10 +94,12 @@ void process_ascii_cmd(char *cmd) {
 					set_carrier_volume(i, gains[i]);
 				}
 			}
+			return;
 		}
 		if (strncmp(cmd, "VOL", 3) == 0) {
 			arg[4] = 0;
 			set_output_volume(strtoul(arg, NULL, 10));
+			return;
 		}
 #ifdef RDS2
 		if (strncmp(cmd, "LPS", 3) == 0) {
@@ -103,6 +111,7 @@ void process_ascii_cmd(char *cmd) {
 			} else {
 				set_rds_lps(arg);
 			}
+			return;
 		}
 		if (strncmp(cmd, "ERT", 3) == 0) {
 			arg[ERT_LENGTH] = 0;
@@ -113,6 +122,7 @@ void process_ascii_cmd(char *cmd) {
 			} else {
 				set_rds_ert(arg);
 			}
+			return;
 		}
 #endif /* RDS2 */
 	}
@@ -127,6 +137,7 @@ void process_ascii_cmd(char *cmd) {
 				set_rds_rtplus_flags(
 					rtp_flags[0], rtp_flags[1]);
 			}
+			return;
 		}
 		if (strncmp(cmd, "PTYN", 4) == 0) {
 			arg[8] = 0;
@@ -137,6 +148,7 @@ void process_ascii_cmd(char *cmd) {
 			} else {
 				set_rds_ptyn(arg);
 			}
+			return;
 		}
 #ifdef RDS2
 		if (strncmp(cmd, "ERTP", 3) == 0) {
@@ -146,6 +158,7 @@ void process_ascii_cmd(char *cmd) {
 				&tags[4], &tags[5]) == 6) {
 				set_rds_ertplus_tags(tags);
 			}
+			return;
 		}
 #endif /* RDS2 */
 	}
@@ -161,6 +174,7 @@ void process_ascii_cmd(char *cmd) {
 				set_rds_ertplus_flags(
 					ertp_flags[0], ertp_flags[1]);
 			}
+			return;
 		}
 	}
 #endif /* RDS2 */
