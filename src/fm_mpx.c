@@ -18,92 +18,68 @@
 
 #include "common.h"
 
-#include "rds.h"
+void fm_mpx_init(struct mpx_t *mpx_ctx,
+	struct rds_obj_t *my_rds, uint32_t sample_rate, size_t frames) {
+
+	/* initialize the subcarrier oscillators */
+	osc_init(mpx_ctx->osc_19k, sample_rate, 19000.0f);
+	osc_init(mpx_ctx->osc_57k, sample_rate, 57000.0f);
 #ifdef RDS2
-#include "rds2.h"
+	osc_init(mpx_ctx->osc_67k, sample_rate, 66500.0f);
+	osc_init(mpx_ctx->osc_71k, sample_rate, 71250.0f);
+	osc_init(mpx_ctx->osc_76k, sample_rate, 76000.0f);
 #endif
-#include "fm_mpx.h"
-#include "osc.h"
+	mpx_ctx->sample_rate = sample_rate;
+	mpx_ctx->num_frames = frames;
+	mpx_ctx->out_frames = malloc(frames * sample_rate * sizeof(float));
+	mpx_ctx->sc_vol = malloc(NUM_SUBCARRIERS * sizeof(float));
+	mpx_ctx->output_vol = 1.0f;
 
-/*
- * Local oscillator objects
- * this is where the MPX waveforms are stored
- *
- */
-static struct osc_t osc_19k;
-static struct osc_t osc_57k;
-#ifdef RDS2
-static struct osc_t osc_67k;
-static struct osc_t osc_71k;
-static struct osc_t osc_76k;
-#endif
-
-static float mpx_vol;
-
-void set_output_volume(uint8_t vol) {
-	if (vol > 100) vol = 100;
-	mpx_vol = ((float)vol / 100.0f);
-}
-
-/* subcarrier volumes */
-static float volumes[] = {
-	0.09f, /* pilot tone: 9% */
-	0.09f, /* RDS: 4.5% modulation */
+	/* subcarrier volumes */
+	mpx_ctx->sc_vol[0] = 0.09f; /* pilot tone: 9% */
+	mpx_ctx->sc_vol[1] = 0.09f; /* RDS: 4.5% modulation */
 #ifdef RDS2
 	/* RDS2 */
-	0.09f,
-	0.09f,
-	0.09f
+	mpx_ctx->sc_vol[2] = 0.09f;
+	mpx_ctx->sc_vol[3] = 0.09f;
+	mpx_ctx->sc_vol[4] = 0.09f;
 #endif
-};
 
-void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
-	/* check for valid index */
-	if (carrier > NUM_SUBCARRIERS) return;
-
-	/* don't allow levels over 15% */
-	if (new_volume >= 15) volumes[carrier] = 0.09f;
-
-	volumes[carrier] = (float)new_volume / 100.0f;
+	/* source RDS context */
+	mpx_ctx->rds = my_rds;
 }
 
-void fm_mpx_init(uint32_t sample_rate) {
-	/* initialize the subcarrier oscillators */
-	osc_init(&osc_19k, sample_rate, 19000.0f);
-	osc_init(&osc_57k, sample_rate, 57000.0f);
-#ifdef RDS2
-	osc_init(&osc_67k, sample_rate, 66500.0f);
-	osc_init(&osc_71k, sample_rate, 71250.0f);
-	osc_init(&osc_76k, sample_rate, 76000.0f);
-#endif
-}
-
-void fm_rds_get_frames(float *outbuf, size_t num_frames) {
+void fm_rds_get_frames(struct mpx_t *mpx_ctx) {
+	float *outbuf = mpx_ctx->out_frames;
 	size_t j = 0;
 	float out;
 
-	for (size_t i = 0; i < num_frames; i++) {
+	for (size_t i = 0; i < mpx_ctx->num_frames; i++) {
 		out = 0.0f;
 
 		/* Pilot tone for calibration */
-		out += osc_get_cos(&osc_19k) * volumes[0];
+		out += osc_get_cos(mpx_ctx->osc_19k) * mpx_ctx->sc_vol[0];
 
-		out += osc_get_cos(&osc_57k) * get_rds_sample(0) * volumes[1];
+		out += osc_get_cos(mpx_ctx->osc_57k) *
+			get_rds_sample(mpx_ctx->rds, 0) * mpx_ctx->sc_vol[1];
 #ifdef RDS2
-		out += osc_get_cos(&osc_67k) * get_rds_sample(1) * volumes[2];
+		out += osc_get_cos(mpx_ctx->osc_67k) *
+			get_rds_sample(mpx_ctx->rds, 1) * mpx_ctx->sc_vol[2];
 #if 0
-		out += osc_get_cos(&osc_71k) * get_rds_sample(2) * volumes[3];
-		out += osc_get_cos(&osc_76k) * get_rds_sample(3) * volumes[4];
+		out += osc_get_cos(mpx_mpx->osc_71k) *
+			get_rds_sample(mpx_ctx->rds, 2) * mpx_ctx->sc_vol[3];
+		out += osc_get_cos(mpx_ctx->osc_76k) *
+			get_rds_sample(mpx_ctx->rds, 3) * mpx_ctx->sc_vol[4];
 #endif
 #endif
 
 		/* update oscillator */
-		osc_update_pos(&osc_19k);
-		osc_update_pos(&osc_57k);
+		osc_update_pos(mpx_ctx->osc_19k);
+		osc_update_pos(mpx_ctx->osc_57k);
 #ifdef RDS2
-		osc_update_pos(&osc_67k);
-		osc_update_pos(&osc_71k);
-		osc_update_pos(&osc_76k);
+		osc_update_pos(mpx_ctx->osc_67k);
+		osc_update_pos(mpx_ctx->osc_71k);
+		osc_update_pos(mpx_ctx->osc_76k);
 #endif
 
 		/* clipper */
@@ -111,18 +87,20 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		out = fmaxf(-1.0f, out);
 
 		/* adjust volume and put into both channels */
-		outbuf[j+0] = outbuf[j+1] = out * mpx_vol;
+		outbuf[j+0] = outbuf[j+1] = out * mpx_ctx->output_vol;
 		j += 2;
 
 	}
 }
 
-void fm_mpx_exit() {
-	osc_exit(&osc_19k);
-	osc_exit(&osc_57k);
+void fm_mpx_exit(struct mpx_t *mpx_ctx) {
+	osc_exit(mpx_ctx->osc_19k);
+	osc_exit(mpx_ctx->osc_57k);
 #ifdef RDS2
-	osc_exit(&osc_67k);
-	osc_exit(&osc_71k);
-	osc_exit(&osc_76k);
+	osc_exit(mpx_ctx->osc_67k);
+	osc_exit(mpx_ctx->osc_71k);
+	osc_exit(mpx_ctx->osc_76k);
 #endif
+	free(mpx_ctx->out_frames);
+	free(mpx_ctx->sc_vol);
 }

@@ -26,7 +26,7 @@ typedef struct rds2_oda_t {
 #define MAX_IMAGE_LEN	163840
 
 /* RDS2 File Transfer */
-typedef struct rft_t {
+typedef struct rds2_rft_t {
 	uint8_t channel;
 
 	unsigned char *file_data;
@@ -43,8 +43,19 @@ typedef struct rft_t {
 
 	uint8_t crc_mode;
 	uint16_t *crcs;
-} rft_t;
+} rds2_rft_t;
 
-extern void get_rds2_bits(uint8_t stream_num, uint8_t *bits);
-extern void init_rds2_encoder();
-extern void exit_rds2_encoder();
+typedef struct rds2_obj_t {
+	/* RDS2 ODAs carried on group type C */
+	struct rds2_oda_t **odas;
+
+	/* RFT (one or more) */
+	struct rds2_rft_t **rfts;
+
+	uint16_t *blocks;
+	uint8_t *bits;
+} rds2_obj_t;
+
+extern void get_rds2_bits(struct rds2_obj_t *rds2_obj, uint8_t stream_num);
+extern void init_rds2_encoder(struct rds2_obj_t *rds2_obj);
+extern void exit_rds2_encoder(struct rds2_obj_t *rds2_obj);

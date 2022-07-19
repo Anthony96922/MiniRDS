@@ -26,9 +26,30 @@
 /* needed for clock time */
 #include <time.h>
 
+#include "resampler.h"
+#include "osc.h"
+#include "fm_mpx.h"
+#include "fm_mpx_ctl.h"
+#include "rds.h"
+#ifdef RDS2
+#include "rds2.h"
+#endif
+
 /* workaround for missing pi definition */
 #ifndef M_PI
 #define M_PI	3.14159265358979323846
 #endif
 
 #define M_2PI	(M_PI * 2.0)
+
+/* encoder object */
+typedef struct encoder_t {
+	/* RDS signal generators */
+	struct rds_gen_t **rds_gen;
+
+	/* FM MPX stuff (including oscillators) */
+	struct mpx_t *mpx;
+
+	/* RDS and RDS2 */
+	struct rds_obj_t *rds;
+} encoder_t;

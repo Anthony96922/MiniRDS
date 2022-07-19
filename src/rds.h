@@ -49,6 +49,7 @@
 #define MAX_AFS 25
 
 typedef struct rds_af_t {
+	uint8_t af_idx;
 	uint8_t num_entries;
 	uint8_t num_afs;
 	uint8_t afs[MAX_AFS*2]; // doubled for LF/MF coding
@@ -67,23 +68,32 @@ typedef struct rds_params_t {
 	uint8_t tp;
 	uint8_t ms;
 	uint8_t di;
+	uint8_t rt_ab;
 	// PS
 	char ps[PS_LENGTH];
+	char cur_ps[PS_LENGTH];
 	// RT
 	char rt[RT_LENGTH];
+	char cur_rt[RT_LENGTH];
 	// PTYN
 	char ptyn[PTYN_LENGTH];
+	char cur_ptyn[PTYN_LENGTH];
 
 	// AF
 	struct rds_af_t af;
 
 	uint8_t tx_ctime;
 
+#ifdef RDS2
 	/* Long PS */
 	char lps[LPS_LENGTH];
+	char cur_lps[LPS_LENGTH];
 
 	/* eRT */
 	char ert[ERT_LENGTH];
+	char cur_ert[ERT_LENGTH];
+#endif
+	char call_sign[4+1];
 } rds_params_t;
 /* Here, the first member of the struct must be a scalar to avoid a
    warning on -Wmissing-braces with GCC < 4.8.3
@@ -204,26 +214,100 @@ typedef struct rds_oda_t {
 
 #define MAX_ODAS	8
 
-extern void init_rds_encoder(struct rds_params_t rds_params, char *call_sign);
-extern void exit_rds_encoder();
-extern void get_rds_bits(uint8_t *bits);
-extern void set_rds_pi(uint16_t pi_code);
-extern void set_rds_rt(char *rt);
-extern void set_rds_ps(char *ps);
-extern void set_rds_lps(char *lps);
-extern void set_rds_ert(char *ert);
-extern void set_rds_rtplus_flags(uint8_t running, uint8_t toggle);
-extern void set_rds_rtplus_tags(uint8_t *tags);
-extern void set_rds_ertplus_flags(uint8_t running, uint8_t toggle);
-extern void set_rds_ertplus_tags(uint8_t *tags);
-extern void set_rds_ta(uint8_t ta);
-extern void set_rds_pty(uint8_t pty);
-extern void set_rds_ptyn(char *ptyn);
-extern void set_rds_af(struct rds_af_t new_af_list);
-extern void set_rds_tp(uint8_t tp);
-extern void set_rds_ms(uint8_t ms);
-extern void set_rds_ct(uint8_t ct);
-extern void set_rds_di(uint8_t di);
-extern float get_rds_sample(uint8_t stream_num);
+// RDS data controls
+typedef struct rds_state_t {
+	uint8_t gs_count;
+	uint8_t ps_state;
+	uint8_t ps_update;
+	uint8_t rt_state;
+	uint8_t rt_update;
+	uint8_t rt_segments;
+	uint8_t rt_bursting;
+	uint8_t ptyn_state;
+	uint8_t ptyn_update;
+
+#ifdef RDS2
+	/* Long PS */
+	uint8_t lps_state;
+	uint8_t lps_update;
+	uint8_t lps_segments;
+
+	/* eRT */
+	uint8_t ert_state;
+	uint8_t ert_update;
+	uint8_t ert_segments;
+	uint8_t ert_bursting;
+#endif
+} rds_state_t;
+
+// ODA
+typedef struct rds_oda_state_t {
+	uint8_t current;
+	uint8_t count;
+} rds_oda_state_t;
+
+// RT+
+typedef struct rds_rtplus_cfg_t {
+	uint8_t group;
+	uint8_t running;
+	uint8_t toggle;
+	uint8_t type[2];
+	uint8_t start[2];
+	uint8_t len[2];
+} rds_rtplus_cfg_t;
+
+#ifdef RDS2
+/* eRT */
+typedef struct rds2_ert_cfg_t {
+	uint8_t group;
+} rds2_ert_cfg_t;
+
+/* eRT+ */
+typedef struct rds2_ertplus_cfg_t {
+	uint8_t group;
+	uint8_t running;
+	uint8_t toggle;
+	uint8_t type[2];
+	uint8_t start[2];
+	uint8_t len[2];
+} rds2_ertplus_cfg_t;
+#endif
+
+/* RDS upper layer objects (includes RDS2) */
+typedef struct rds_obj_t {
+	/* control socket */
+	struct ctl_socket_obj_t *ctl_sock;
+
+	struct rds_params_t *data;
+	struct rds_state_t *state;
+
+	struct rds_af_t *af_list;
+
+	struct rds_oda_t *odas;
+	struct rds_oda_state_t *oda_state;
+
+	struct rds_rtplus_cfg_t *rtplus_cfg;
+
+	uint16_t *blocks;
+	uint8_t *bits;
+
+#ifdef RDS2
+	/* RDS2 stuff that may exist on stream 0 */
+	struct rds2_ert_cfg_t *ert_cfg;
+	struct rds2_ertplus_cfg_t *ertplus_cfg;
+
+	/* only for stream 1, 2 or 3 */
+	struct rds2_obj_t *rds2_obj;
+#endif
+
+	uint8_t stream_count;
+
+	struct rds_gen_t **rds_gen;
+} rds_obj_t;
+
+extern void init_rds_encoder(struct rds_obj_t *rds_obj, struct rds_params_t rds_params);
+extern void exit_rds_encoder(struct rds_obj_t *rds_obj);
+extern void get_rds_bits(struct rds_obj_t *rds_obj);
+extern float get_rds_sample(struct rds_obj_t *rds_obj, uint8_t stream_num);
 
 #endif /* RDS_H */

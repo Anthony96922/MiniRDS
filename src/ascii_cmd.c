@@ -17,15 +17,13 @@
  */
 
 #include "common.h"
-#include "rds.h"
-#include "fm_mpx.h"
-#include "lib.h"
+#include "rds_setters.h"
 
 /*
  * If a command is received, process it and update the RDS data.
  *
  */
-void process_ascii_cmd(char *cmd) {
+void process_ascii_cmd(struct rds_obj_t *rds_obj, char *cmd) {
 	char *arg;
 	uint8_t cmd_len = 0;
 
@@ -37,34 +35,34 @@ void process_ascii_cmd(char *cmd) {
 
 		if (strncmp(cmd, "PI", 2) == 0) {
 			arg[4] = 0;
-			set_rds_pi(strtoul(arg, NULL, 16));
+			set_rds_pi(rds_obj, strtoul(arg, NULL, 16));
 			return;
 		}
 		if (strncmp(cmd, "PS", 2) == 0) {
 			arg[PS_LENGTH] = 0;
-			set_rds_ps(arg);
+			set_rds_ps(rds_obj, arg);
 			return;
 		}
 		if (strncmp(cmd, "RT", 2) == 0) {
 			arg[RT_LENGTH] = 0;
-			set_rds_rt(arg);
+			set_rds_rt(rds_obj, arg);
 			return;
 		}
 		if (strncmp(cmd, "TA", 2) == 0) {
-			set_rds_ta(arg[0] == '1' ? 1 : 0);
+			set_rds_ta(rds_obj, arg[0] == '1' ? 1 : 0);
 			return;
 		}
 		if (strncmp(cmd, "TP", 2) == 0) {
-			set_rds_tp(arg[0] == '1' ? 1 : 0);
+			set_rds_tp(rds_obj, arg[0] == '1' ? 1 : 0);
 			return;
 		}
 		if (strncmp(cmd, "MS", 2) == 0) {
-			set_rds_ms(arg[0] == '1' ? 1 : 0);
+			set_rds_ms(rds_obj, arg[0] == '1' ? 1 : 0);
 			return;
 		}
 		if (strncmp(cmd, "DI", 2) == 0) {
 			arg[2] = 0;
-			set_rds_di(strtoul(arg, NULL, 10));
+			set_rds_di(rds_obj, strtoul(arg, NULL, 10));
 			return;
 		}
 	}
@@ -73,7 +71,7 @@ void process_ascii_cmd(char *cmd) {
 		arg = cmd + 4;
 
 		if (strncmp(cmd, "PTY", 3) == 0) {
-			set_rds_pty(strtoul(arg, NULL, 10));
+			set_rds_pty(rds_obj, strtoul(arg, NULL, 10));
 			return;
 		}
 		if (strncmp(cmd, "RTP", 3) == 0) {
@@ -81,7 +79,7 @@ void process_ascii_cmd(char *cmd) {
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
-				set_rds_rtplus_tags(tags);
+				set_rds_rtplus_tags(rds_obj, tags);
 			}
 			return;
 		}
@@ -91,14 +89,14 @@ void process_ascii_cmd(char *cmd) {
 				&gains[0], &gains[1], &gains[2], &gains[3],
 				&gains[4]) == 5) {
 				for (uint8_t i = 0; i < 5; i++) {
-					set_carrier_volume(i, gains[i]);
+					set_carrier_volume(rds_obj, i, gains[i]);
 				}
 			}
 			return;
 		}
 		if (strncmp(cmd, "VOL", 3) == 0) {
 			arg[4] = 0;
-			set_output_volume(strtoul(arg, NULL, 10));
+			set_output_volume(rds_obj, strtoul(arg, NULL, 10));
 			return;
 		}
 #ifdef RDS2
@@ -107,9 +105,9 @@ void process_ascii_cmd(char *cmd) {
 			if (arg[0] == '-') {
 				char tmp[1];
 				tmp[0] = 0;
-				set_rds_lps(tmp);
+				set_rds_lps(rds_obj, tmp);
 			} else {
-				set_rds_lps(arg);
+				set_rds_lps(rds_obj, arg);
 			}
 			return;
 		}
@@ -118,9 +116,9 @@ void process_ascii_cmd(char *cmd) {
 			if (arg[0] == '-') {
 				char tmp[1];
 				tmp[0] = 0;
-				set_rds_ert(tmp);
+				set_rds_ert(rds_obj, tmp);
 			} else {
-				set_rds_ert(arg);
+				set_rds_ert(rds_obj, arg);
 			}
 			return;
 		}
@@ -134,8 +132,7 @@ void process_ascii_cmd(char *cmd) {
 			uint8_t rtp_flags[2];
 			if (sscanf(arg, "%hhu,%hhu",
 				&rtp_flags[0], &rtp_flags[1]) == 2) {
-				set_rds_rtplus_flags(
-					rtp_flags[0], rtp_flags[1]);
+				set_rds_rtplus_flags(rds_obj, rtp_flags);
 			}
 			return;
 		}
@@ -156,7 +153,7 @@ void process_ascii_cmd(char *cmd) {
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
-				set_rds_ertplus_tags(tags);
+				set_rds_ertplus_tags(rds_obj, tags);
 			}
 			return;
 		}
@@ -171,8 +168,7 @@ void process_ascii_cmd(char *cmd) {
 			uint8_t ertp_flags[2];
 			if (sscanf(arg, "%hhu,%hhu",
 				&ertp_flags[0], &ertp_flags[1]) == 2) {
-				set_rds_ertplus_flags(
-					ertp_flags[0], ertp_flags[1]);
+				set_rds_ertplus_flags(rds_obj, ertp_flags);
 			}
 			return;
 		}

@@ -22,25 +22,15 @@
  */
 
 #include "common.h"
-#include "net.h"
 #include "ascii_cmd.h"
-
-static int listener_fd; /* fd of the listener */
-static int current_fd; /* fd of the current connection */
-static struct sockaddr_in6 my_sock;
-static struct sockaddr_in6 peer_sock;
-static socklen_t peer_addr_size;
-static struct pollfd sock_poller;
-static struct pollfd peer_poller;
-static struct pollfd curr_sock_poller;
-
-uint8_t already_connected = 0;
+#include "net.h"
 
 /*
  * Opens a socket to be used to control the RDS coder.
  */
 
-int open_ctl_socket(uint16_t port, uint8_t proto) {
+int open_ctl_socket(struct rds_obj_t *rds, uint16_t port, uint8_t proto) {
+	ctl_socket_obj_t *sock_obj = rds->ctl_sock;
 	struct in6_addr my_addr;
 	unsigned char listen_addr[sizeof(struct in6_addr)];
 
@@ -48,41 +38,44 @@ int open_ctl_socket(uint16_t port, uint8_t proto) {
 	 * 1 = tcp
 	 * 0 = udp
 	 */
-	listener_fd = socket(AF_INET6, proto ? SOCK_STREAM : SOCK_DGRAM, 0);
-	if (listener_fd == -1) return -1;
+	sock_obj->listener_fd = socket(
+		AF_INET6,
+		proto ? SOCK_STREAM : SOCK_DGRAM, 0
+	);
+	if (sock_obj->listener_fd == -1) return -1;
 
 	/* use ipv6 sock stuct to support both v4 and v6 */
-	memset(&my_sock, 0, sizeof(struct sockaddr_in6));
+	memset(&sock_obj->my_sock, 0, sizeof(struct sockaddr_in6));
 	memset(&my_addr, 0, sizeof(struct in6_addr));
-	memset(&peer_sock, 0, sizeof(struct sockaddr_in6));
+	memset(&sock_obj->peer_sock, 0, sizeof(struct sockaddr_in6));
 	memset(listen_addr, 0, sizeof(struct in6_addr));
 
 	/* configure listening address and port */
-	my_sock.sin6_family = AF_INET6;
+	sock_obj->my_sock.sin6_family = AF_INET6;
 	inet_pton(AF_INET6, "::", &listen_addr); /* listen on both v4 and v6 */
 	memcpy(my_addr.s6_addr, listen_addr, sizeof(struct in6_addr));
-	my_sock.sin6_addr = my_addr;
-	my_sock.sin6_port = htons(port);
+	sock_obj->my_sock.sin6_addr = my_addr;
+	sock_obj->my_sock.sin6_port = htons(port);
 
 	/* setup the socket */
-	if (bind(listener_fd, (struct sockaddr *)&my_sock,
+	if (bind(sock_obj->listener_fd, (struct sockaddr *)&sock_obj->my_sock,
 		sizeof(struct sockaddr_in6) == -1))
 		return -1;
 
 	/* start listening (accept only 1 connection) */
-	listen(listener_fd, 1);
+	listen(sock_obj->listener_fd, 1);
 
 	/* setup the socket poller */
-	sock_poller.fd = listener_fd;
-	sock_poller.events = POLLIN;
+	sock_obj->sock_poller.fd = sock_obj->listener_fd;
+	sock_obj->sock_poller.events = POLLIN;
 
-	curr_sock_poller.events = POLLIN;
+	sock_obj->curr_sock_poller.events = POLLIN;
 
 	/* setup the command poller events */
-	peer_poller.events = POLLIN;
+	sock_obj->peer_poller.events = POLLIN;
 
 	/* peer socket */
-	peer_addr_size = sizeof(struct sockaddr_in6);
+	sock_obj->peer_addr_size = sizeof(struct sockaddr_in6);
 
 	return 0;
 }
@@ -91,42 +84,45 @@ int open_ctl_socket(uint16_t port, uint8_t proto) {
  * Polls the current socket, and if a command is received,
  * calls process_ascii_cmd.
  */
-void poll_ctl_socket() {
+void poll_ctl_socket(struct rds_obj_t *rds) {
+	ctl_socket_obj_t *sock_obj = rds->ctl_sock;
 	static char pipe_buf[CTL_BUFFER_SIZE];
 	static char cmd_buf[CMD_BUFFER_SIZE];
 	char *token;
 
-	if (!already_connected) {
+	if (!sock_obj->already_connected) {
 		/* check for a new connection */
-		if (poll(&sock_poller, 1, READ_TIMEOUT_MS) <= 0) return;
+		if (poll(&sock_obj->sock_poller, 1, READ_TIMEOUT_MS) <= 0)
+			return;
 
 		/* return early if there are no new connections */
-		if (sock_poller.revents == 0) return;
+		if (sock_obj->sock_poller.revents == 0) return;
 
 		/* check for new clients */
-		current_fd = accept(listener_fd, (struct sockaddr *)&peer_sock,
-			&peer_addr_size);
-		if (current_fd == -1)
+		sock_obj->current_fd = accept(sock_obj->listener_fd,
+			(struct sockaddr *)&sock_obj->peer_sock,
+			&sock_obj->peer_addr_size);
+		if (sock_obj->current_fd == -1)
 			return;
 
 		/* setup the command poller */
-		peer_poller.fd = current_fd;
+		sock_obj->peer_poller.fd = sock_obj->current_fd;
 
-		already_connected = 1;
+		sock_obj->already_connected = 1;
 		return;
 	}
 
 	/* check for new commands */
-	if (poll(&peer_poller, 1, READ_TIMEOUT_MS) <= 0) return;
+	if (poll(&sock_obj->peer_poller, 1, READ_TIMEOUT_MS) <= 0) return;
 
 	/* return early if there are no new commands */
-	if (peer_poller.revents == 0) return;
+	if (sock_obj->peer_poller.revents == 0) return;
 
 	memset(pipe_buf, 0, CTL_BUFFER_SIZE);
-	if (read(current_fd, pipe_buf, CTL_BUFFER_SIZE - 1) == -1) {
+	if (read(sock_obj->current_fd, pipe_buf, CTL_BUFFER_SIZE - 1) == -1) {
 		/* client might have disconnected */
-		already_connected = 0;
-		close(current_fd);
+		sock_obj->already_connected = 0;
+		close(sock_obj->current_fd);
 		return;
 	}
 
@@ -137,11 +133,12 @@ void poll_ctl_socket() {
 		strncpy(cmd_buf, token, CMD_BUFFER_SIZE - 1);
 		token = strtok(NULL, "\n");
 
-		process_ascii_cmd(cmd_buf);
+		process_ascii_cmd(rds, cmd_buf);
 	}
 }
 
-void close_ctl_socket() {
-	if (current_fd > 0) close(current_fd);
-	if (listener_fd > 0) close(listener_fd);
+void close_ctl_socket(struct rds_obj_t *rds) {
+	ctl_socket_obj_t *sock_obj = rds->ctl_sock;
+	if (sock_obj->current_fd > 0) close(sock_obj->current_fd);
+	if (sock_obj->listener_fd > 0) close(sock_obj->listener_fd);
 }

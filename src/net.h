@@ -22,6 +22,18 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-extern int open_ctl_socket(uint16_t port, uint8_t proto);
-extern void close_ctl_socket();
-extern void poll_ctl_socket();
+typedef struct ctl_socket_obj_t {
+	int listener_fd; /* fd of the listener */
+	int current_fd; /* fd of the current connection */
+	struct sockaddr_in6 my_sock;
+	struct sockaddr_in6 peer_sock;
+	socklen_t peer_addr_size;
+	struct pollfd sock_poller;
+	struct pollfd peer_poller;
+	struct pollfd curr_sock_poller;
+	uint8_t already_connected;
+} ctl_socket_obj_t;
+
+extern int open_ctl_socket(struct rds_obj_t *rds, uint16_t port, uint8_t proto);
+extern void close_ctl_socket(struct rds_obj_t *rds);
+extern void poll_ctl_socket(struct rds_obj_t *rds);

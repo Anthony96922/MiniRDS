@@ -22,13 +22,6 @@
 #include <pthread.h>
 #include <ao/ao.h>
 
-#include "rds.h"
-#include "fm_mpx.h"
-#include "control_pipe.h"
-#include "resampler.h"
-#include "net.h"
-#include "lib.h"
-
 static uint8_t stop_rds;
 
 static void stop() {
@@ -146,7 +139,7 @@ int main(int argc, char **argv) {
 		.rt = "MiniRDS: Software RDS encoder",
 		.pi = 0x1000
 	};
-	char callsign[5];
+	struct encoder_t *encoder;
 	char ps[PS_LENGTH+1];
 	char rt[RT_LENGTH+1];
 	char ptyn[PTYN_LENGTH+1];
@@ -210,8 +203,9 @@ int main(int argc, char **argv) {
 		{ 0,		0,		0,	0 }
 	};
 
+	encoder = malloc(sizeof(struct encoder_t));
+
 	memset(control_pipe, 0, 51);
-	memset(callsign, 0, 5);
 	memset(ps, 0, PS_LENGTH + 1);
 	memset(rt, 0, RT_LENGTH + 1);
 	memset(ptyn, 0, PTYN_LENGTH + 1);
@@ -260,7 +254,7 @@ keep_parsing_opts:
 
 #ifdef RBDS
 		case 'S': //callsign
-			strncpy(callsign, optarg, 4);
+			strncpy(rds_params.call_sign, optarg, 4);
 			break;
 #endif
 
@@ -300,11 +294,12 @@ done_parsing_opts:
 	signal(SIGTERM, stop);
 
 	// Initialize the baseband generator
-	fm_mpx_init(MPX_SAMPLE_RATE);
-	set_output_volume(volume);
+	fm_mpx_init(encoder->mpx, encoder->rds, MPX_SAMPLE_RATE, NUM_MPX_FRAMES_IN);
+	set_output_volume(encoder->mpx, volume);
 
 	// Initialize the RDS modulator
-	init_rds_encoder(rds_params, callsign);
+	init_rds(encoder->rds);
+	set_rds_params(encoder->rds, rds_params);
 
 	// AO format
 	memset(&format, 0, sizeof(struct ao_sample_format));
@@ -328,7 +323,7 @@ done_parsing_opts:
 	src_data.output_frames = NUM_MPX_FRAMES_OUT;
 	src_data.src_ratio =
 		(double)OUTPUT_SAMPLE_RATE / (double)MPX_SAMPLE_RATE;
-	src_data.data_in = mpx_buffer;
+	src_data.data_in = encoder->mpx->out_frames;
 	src_data.data_out = out_buffer;
 
 	r = resampler_init(&src_state, 2);
@@ -371,7 +366,7 @@ done_parsing_opts:
 	}
 
 	for (;;) {
-		fm_rds_get_frames(mpx_buffer, NUM_MPX_FRAMES_IN);
+		fm_mpx_get_frames(encoder->mpx);
 
 		if (resample(src_state, src_data, &frames) < 0) break;
 
@@ -407,12 +402,14 @@ exit:
 
 	pthread_attr_destroy(&attr);
 
-	fm_mpx_exit();
-	exit_rds_encoder();
+	fm_mpx_exit(encoder->mpx);
+	exit_rds(encoder->rds);
 
 	free(mpx_buffer);
 	free(out_buffer);
 	free(dev_out);
+
+	free(encoder);
 
 	return 0;
 }

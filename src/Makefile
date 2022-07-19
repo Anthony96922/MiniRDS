@@ -22,12 +22,13 @@ CFLAGS = -Wall -Wextra -pedantic -O2 -std=c18
 CFLAGS += -DVERSION=\"$(VERSION)\"
 
 obj = minirds.o waveforms.o rds.o fm_mpx.o control_pipe.o osc.o \
-	resampler.o modulator.o lib.o net.o ascii_cmd.o
+	resampler.o modulator.o lib.o net.o ascii_cmd.o rds_setters.o \
+	rds_getters.o fm_mpx_ctl.o
 libs = -lm -lsamplerate -lpthread -lao
 
 ifeq ($(RDS2), 1)
 	CFLAGS += -DRDS2
-	obj += rds2.o rds2_image_data.o
+	obj += rds2.o rds2_rft.o rds2_image_data.o
 endif
 
 ifeq ($(RDS2_DEBUG), 1)

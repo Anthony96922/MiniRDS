@@ -1,6 +1,6 @@
 /*
  * mpxgen - FM multiplex encoder with Stereo and RDS
- * Copyright (C) 2021 Anthony96922
+ * Copyright (C) 2019 Anthony96922
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,24 +16,21 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifdef RDS2
-#define NUM_STREAMS	4
-#else
-#define NUM_STREAMS	1
-#endif
+#include "common.h"
 
-/* RDS signal context */
-typedef struct rds_gen_t {
-	uint8_t *bit_buffer; /* BITS_PER_GROUP */
-	uint8_t bit_pos;
-	float *sample_buffer; /* SAMPLE_BUFFER_SIZE */
-	uint8_t prev_output;
-	uint8_t cur_output;
-	uint8_t cur_bit;
-	uint8_t sample_count;
-	uint16_t in_sample_index;
-	uint16_t out_sample_index;
-} rds_gen_t;
+void set_output_volume(struct mpx_t *mpx_ctx, uint8_t vol) {
+        if (vol > 100) vol = 100;
+        mpx_ctx->output_vol = ((float)vol / 100.0f);
+}
 
-extern void init_rds_generator(struct rds_obj_t *rds_obj);
-extern void exit_rds_generator(struct rds_obj_t *rds_obj);
+void set_carrier_volume(struct mpx_t *mpx_ctx,
+	uint8_t carrier, uint8_t new_volume) {
+
+	/* check for valid index */
+	if (carrier > NUM_SUBCARRIERS) return;
+
+	/* don't allow levels over 15% */
+	if (new_volume >= 15) new_volume = 9;
+
+	mpx_ctx->sc_vol[carrier] = (float)new_volume / 100.0f;
+}

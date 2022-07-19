@@ -33,8 +33,36 @@
 #define NUM_SUBCARRIERS		1
 #endif
 
-extern void fm_mpx_init(uint32_t sample_rate);
-extern void fm_rds_get_frames(float *outbuf, size_t num_frames);
-extern void fm_mpx_exit();
-extern void set_output_volume(uint8_t vol);
-extern void set_carrier_volume(uint8_t carrier, uint8_t new_volume);
+/* FM MPX object */
+typedef struct mpx_t {
+
+	uint32_t sample_rate;
+
+	/*
+	 * Local oscillator objects
+	 * this is where the MPX waveforms are stored
+	 *
+	 */
+	struct osc_t *osc_19k;
+	struct osc_t *osc_57k;
+#ifdef RDS2
+	struct osc_t *osc_67k;
+	struct osc_t *osc_71k;
+	struct osc_t *osc_76k;
+#endif
+
+	float *sc_vol;
+
+	float output_vol;
+
+	size_t num_frames;
+	float *out_frames;
+
+	/* the RDS object to reference */
+	struct rds_obj_t *rds;
+} mpx_t;
+
+extern void fm_mpx_init(struct mpx_t *mpx_ctx,
+	struct rds_obj_t *my_rds, uint32_t sample_rate, size_t frames);
+extern void fm_mpx_get_frames(struct mpx_t *mpx_ctx);
+extern void fm_mpx_exit(struct mpx_t *mpx_ctx);

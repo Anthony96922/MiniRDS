@@ -17,7 +17,6 @@
  */
 
 #include "common.h"
-#include "osc.h"
 
 /*
  * Code for MPX oscillator
@@ -66,6 +65,8 @@ static void create_wave(uint32_t rate, float freq,
  */
 void osc_init(struct osc_t *osc, uint32_t sample_rate, float freq) {
 
+	osc = malloc(sizeof(struct osc_t));
+
 	/* sample rate for the objects */
 	osc->sample_rate = sample_rate;
 
@@ -111,6 +112,5 @@ void osc_update_pos(struct osc_t *osc) {
 void osc_exit(struct osc_t *osc) {
 	free(osc->sin_wave);
 	free(osc->cos_wave);
-	osc->cur = 0;
-	osc->max = 0;
+	free(osc);
 }
