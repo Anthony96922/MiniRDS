@@ -69,5 +69,5 @@ public domain](http://downloads.dxing.si/download.php?file=ISO%20Stamdards/RDS/l
 
 ## Credits
 The RDS waveform generator was adapted from [PiFmRds](https://github.com/ChristopheJacquet/PiFmRds)
-<b>
-The CT generator was adapted from [PiFmAdv] (https://github.com/miegl/PiFmAdv)
+<br>
+The CT generator was adapted from [PiFmAdv](https://github.com/miegl/PiFmAdv)
