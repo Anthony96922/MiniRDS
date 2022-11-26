@@ -198,7 +198,7 @@ static void get_rds_oda_group(uint16_t *blocks) {
  */
 static uint8_t get_rds_ct_group(uint16_t *blocks) {
 	static uint8_t latest_minutes;
-	struct tm utc, local;
+	struct tm utc;
 
 	// Check time
 	time_t now = time(NULL);
@@ -209,38 +209,18 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 		latest_minutes = utc.tm_min;
 
 		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
-		uint16_t mjd = 14956 + utc.tm_mday +
-			(uint16_t)((utc.tm_year - l) * 365.25f) +
-			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
+		uint32_t mjd = 14956 + utc.tm_mday +
+			(uint32_t)((utc.tm_year - l) * 365.25f) +
+			(uint32_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
 
 		blocks[1] |= 4 << 12 | (mjd>>15);
 		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
 		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
 
-		memcpy(&local, localtime(&now), sizeof(struct tm));
-
-		int8_t offset = local.tm_hour - utc.tm_hour;
-		int8_t min_offset = local.tm_min - utc.tm_min;
-		int8_t half_offset;
-
-		/* half hour offset */
-		if (min_offset < 0) {
-			half_offset = -1;
-		} else if (min_offset > 0) {
-			half_offset = 1;
-		} else {
-			half_offset = 0;
-		}
-
-		/* if local and UTC are on different days */
-		if (utc.tm_hour <= 12)
-			offset -= 24;
-
-		/* determine negative offset */
-		uint8_t negative_offset = (offset + half_offset) < 0 ? 1 : 0;
-
-		blocks[3] |= (negative_offset & 1) << 5;
-		blocks[3] |= abs(2 * offset + half_offset) & INT8_L5;
+		/* tm_gmtoff doesn't exist in POSIX but __tm_gmtoff does */
+		int16_t offset = utc.__tm_gmtoff / (30 * 60);
+		blocks[3] |= abs(offset) & INT8_L5;
+		if (offset < 0) blocks[3] |= 1 << 5;
 
 		return 1;
 	}
