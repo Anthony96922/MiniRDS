@@ -221,7 +221,7 @@ int get_rds_ct_group(uint16_t *blocks) {
 
         utc = localtime(&now);
 
-        int offset = utc->tm_gmtoff / (30 * 60);
+        int offset = utc->__tm_gmtoff / (30 * 60);
         blocks[3] |= abs(offset);
         if(offset < 0) blocks[3] |= 0x20;
 
