@@ -194,58 +194,39 @@ static void get_rds_oda_group(uint16_t *blocks) {
 }
 
 /* Generates a CT (clock time) group if the minute has just changed
- * Returns 1 if the CT group was generated, 0 otherwise
- */
-static uint8_t get_rds_ct_group(uint16_t *blocks) {
-	static uint8_t latest_minutes;
-	struct tm utc, local;
+   Returns 1 if the CT group was generated, 0 otherwise
+*/
+int get_rds_ct_group(uint16_t *blocks) {
+    static int latest_minutes = -1;
 
-	// Check time
-	time_t now = time(NULL);
-	memcpy(&utc, gmtime(&now), sizeof(struct tm));
+    // Check time
+    time_t now;
+    struct tm *utc;
 
-	if (utc.tm_min != latest_minutes) {
-		// Generate CT group
-		latest_minutes = utc.tm_min;
+    now = time (NULL);
+    utc = gmtime (&now);
 
-		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
-		uint16_t mjd = 14956 + utc.tm_mday +
-			(uint16_t)((utc.tm_year - l) * 365.25f) +
-			(uint16_t)((utc.tm_mon + 2 + l*12) * 30.6001f);
+    if(utc->tm_min != latest_minutes) {
+        // Generate CT group
+        latest_minutes = utc->tm_min;
 
-		blocks[1] |= 4 << 12 | (mjd>>15);
-		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
-		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
+        int l = utc->tm_mon <= 1 ? 1 : 0;
+        int mjd = 14956 + utc->tm_mday +
+                  (int)((utc->tm_year - l) * 365.25) +
+                  (int)((utc->tm_mon + 2 + l*12) * 30.6001);
 
-		memcpy(&local, localtime(&now), sizeof(struct tm));
+        blocks[1] = 0x4400 | (mjd>>15);
+        blocks[2] = (mjd<<1) | (utc->tm_hour>>4);
+        blocks[3] = (utc->tm_hour & 0xF)<<12 | utc->tm_min<<6;
 
-		int8_t offset = local.tm_hour - utc.tm_hour;
-		int8_t min_offset = local.tm_min - utc.tm_min;
-		int8_t half_offset;
+        utc = localtime(&now);
 
-		/* half hour offset */
-		if (min_offset < 0) {
-			half_offset = -1;
-		} else if (min_offset > 0) {
-			half_offset = 1;
-		} else {
-			half_offset = 0;
-		}
+        int offset = utc->tm_gmtoff / (30 * 60);
+        blocks[3] |= abs(offset);
+        if(offset < 0) blocks[3] |= 0x20;
 
-		/* if local and UTC are on different days */
-		if (utc.tm_hour <= 12)
-			offset -= 24;
-
-		/* determine negative offset */
-		uint8_t negative_offset = (offset + half_offset) < 0 ? 1 : 0;
-
-		blocks[3] |= (negative_offset & 1) << 5;
-		blocks[3] |= abs(2 * offset + half_offset) & INT8_L5;
-
-		return 1;
-	}
-
-	return 0;
+        return 1;
+    } else return 0;
 }
 
 /* PTYN group (10A)
