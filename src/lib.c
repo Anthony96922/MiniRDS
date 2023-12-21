@@ -35,10 +35,10 @@ void msleep(unsigned long ms) {
 	nanosleep(&ts, NULL);
 }
 
-// RDS PTY list
+/* RDS PTY list */
 static char *ptys[32] = {
 #ifdef RBDS
-	// NRSC RBDS
+	/* NRSC RBDS */
 	"None", "News", "Information", "Sports",
 	"Talk", "Rock", "Classic rock", "Adult hits",
 	"Soft rock" , "Top 40", "Country", "Oldies",
@@ -48,7 +48,7 @@ static char *ptys[32] = {
 	"Spanish talk", "Spanish music", "Hip-Hop", "Unassigned",
 	"Unassigned", "Weather", "Emergency test", "Emergency"
 #else
-	// ETSI
+	/* ETSI */
 	"None", "News", "Current affairs", "Information",
 	"Sport", "Education", "Drama", "Culture", "Science",
 	"Varied", "Pop music", "Rock music", "Easy listening",
@@ -62,7 +62,97 @@ static char *ptys[32] = {
 };
 
 char *get_pty(uint8_t pty) {
+	if (pty > 31) pty = 0;
 	return ptys[pty];
+}
+
+static char *rtp_content_types[64] = {
+	/* dummy */
+	"DUMMY_CLASS",
+	/* item */
+	"ITEM.TITLE",
+	"ITEM.ALBUM",
+	"ITEM.TRACKNUMBER",
+	"ITEM.ARTIST",
+	"ITEM.COMPOSITION",
+	"ITEM.MOVEMENT",
+	"ITEM.CONDUCTOR",
+	"ITEM.COMPOSER",
+	"ITEM.BAND",
+	"ITEM.COMMENT",
+	"ITEM.GENRE",
+	/* info */
+	"INFO.NEWS",
+	"INFO.NEWS.LOCAL",
+	"INFO.STOCKMARKET",
+	"INFO.SPORT",
+	"INFO.LOTTERY",
+	"INFO.HOROSCOPE",
+	"INFO.DAILY_DIVERSION",
+	"INFO.HEALTH",
+	"INFO.EVENT",
+	"INFO.SCENE",
+	"INFO.CINEMA",
+	"INFO.TV",
+	"INFO.DATE_TIME",
+	"INFO.WEATHER",
+	"INFO.TRAFFIC",
+	"INFO.ALARM",
+	"INFO.ADVERTISEMENT",
+	"INFO.URL",
+	"INFO.OTHER",
+	/* program */
+	"STATIONNAME.SHORT",
+	"STATIONNAME.LONG",
+	"PROGRAMME.NOW",
+	"PROGRAMME.NEXT",
+	"PROGRAMME.PART",
+	"PROGRAMME.HOST",
+	"PROGRAMME.EDITORIAL_STAFF",
+	"PROGRAMME.FREQUENCY",
+	"PROGRAMME.HOMEPAGE",
+	"PROGRAMME.SUBCHANNEL",
+	/* interactivity */
+	"PHONE.HOTLINE",
+	"PHONE.STUDIO",
+	"PHONE.OTHER",
+	"SMS.STUDIO",
+	"SMS.OTHER",
+	"EMAIL.HOTLINE",
+	"EMAIL.STUDIO",
+	"EMAIL.OTHER",
+	"MMS.OTHER",
+	"CHAT",
+	"CHAT.CENTRE",
+	"VOTE.QUESTION",
+	"VOTE.CENTRE",
+	/* rfu */
+	"RFU_1",
+	"RFU_2",
+	/* private classes */
+	"PRIVATE_1",
+	"PRIVATE_2",
+	"PRIVATE_3",
+	/* descriptor */
+	"PLACE",
+	"APPOINTMENT",
+	"IDENTIFIER",
+	"PURCHASE",
+	"GET_DATA"
+};
+
+uint8_t get_rtp_tag_id(char *rtp_tag_name) {
+	uint8_t tag_id = 0;
+	for (uint8_t i = 0; i < 64; i++) {
+		if (strcmp(rtp_tag_name, rtp_content_types[i]) == 0)
+			tag_id = i;
+	}
+	return tag_id;
+}
+
+char *get_rtp_tag_name(uint8_t rtp_tag) {
+	if (rtp_tag > 63) rtp_tag = 0;
+	return rtp_content_types[rtp_tag];
 }
 
 static uint16_t offset_words[] = {
@@ -128,6 +218,27 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits) {
 	}
 }
 
+#ifdef RDS2
+void add_checkwords_rds2(uint16_t *blocks, uint8_t *bits) {
+	uint16_t block, check, offset_word;
+
+	for (int i = 0; i < GROUP_LENGTH; i++) {
+		block = blocks[i];
+		offset_word = offset_words[i];
+
+		check = crc(block) ^ offset_word;
+		for (int j = 0; j < BLOCK_SIZE; j++) {
+			*bits++ = ((block & (1 << (BLOCK_SIZE - 1))) != 0);
+			block <<= 1;
+		}
+		for (int j = 0; j < POLY_DEG; j++) {
+			*bits++ = ((check & (1 << (POLY_DEG - 1))) != 0);
+			check <<= 1;
+		}
+	}
+}
+#endif
+
 #ifdef RBDS
 /*
  * PI code calculator
@@ -179,14 +290,14 @@ uint16_t callsign2pi(char *callsign) {
 uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 	uint16_t af;
 
-	// check if the AF list is full
+	/* check if the AF list is full */
 	if (af_list->num_afs + 1 > MAX_AFS) {
 		fprintf(stderr, "Too many AF entries.\n");
 		return 1;
 	}
 
-	// check if new frequency is valid
-	if (freq >= 87.6f && freq <= 107.9f) { // FM
+	/* check if new frequency is valid */
+	if (freq >= 87.6f && freq <= 107.9f) { /* FM */
 		af = (uint16_t)(freq * 10.0f) - 875;
 		af_list->afs[af_list->num_entries] = af;
 		af_list->num_entries += 1;
@@ -230,25 +341,25 @@ void show_af_list(struct rds_af_t af_list) {
 
 	for (uint8_t i = 0; i < af_list.num_entries; i++) {
 		if (af_list.afs[i] == AF_CODE_LFMF_FOLLOWS) {
-			// The next AF will be for LF/MF
+			/* The next AF will be for LF/MF */
 			af_is_lf_mf = 1;
 		} else {
 			if (af_is_lf_mf) {
 #ifdef RBDS
-			// MF (FCC)
+			/* MF (FCC) */
 				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
 				fprintf(stderr, " (MF)%.0f", freq);
 #else
-				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { // LF
+				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { /* LF */
 					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
 					fprintf(stderr, " (LF)%.0f", freq);
-				} else { //if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) { // MF
+				} else { /*if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) {*/ /* MF */
 					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
 					fprintf(stderr, " (MF)%.0f", freq);
 				}
 #endif
 			} else {
-				// FM
+				/* FM */
 				freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
 				fprintf(stderr, " %.1f", freq);
 			}

@@ -25,6 +25,18 @@ typedef struct rds2_oda_t {
 
 #define MAX_IMAGE_LEN	163840
 
+/* RFT CRC mode */
+enum crc_mode {
+	CRC_MODE_ENTIRE_FILE,	/* over entire file (universal) */
+	CRC_MODE_16_GROUPS,	/* chunks of 16 groups (size <= 40,960) */
+	CRC_MODE_32_GROUPS,	/* chunks of 32 groups (40,960 < size <= 81,920) */
+	CRC_MODE_64_GROUPS,	/* chunks of 64 groups (size > 81,960) */
+	CRC_MODE_128_GROUPS,	/* chunks of 128 groups (size > 81,960) */
+	CRC_MODE_256_GROUPS,	/* chunks of 256 groups (size > 81,960) */
+	CRC_MODE_RFU,		/* reserved */
+	CRC_MODE_AUTO		/* automatic between 1-3 based on size */
+};
+
 /* RDS2 File Transfer */
 typedef struct rft_t {
 	uint8_t channel;

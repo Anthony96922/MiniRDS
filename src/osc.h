@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// context for MPX oscillator
+/* context for MPX oscillator */
 typedef struct osc_t {
 	/* the sample rate at which the oscillator operates */
 	uint32_t sample_rate;

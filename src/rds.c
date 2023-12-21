@@ -26,7 +26,7 @@
 
 static struct rds_params_t rds_data;
 
-// RDS data controls
+/* RDS data controls */
 static struct {
 	uint8_t ps_update;
 	uint8_t rt_update;
@@ -47,14 +47,14 @@ static struct {
 	uint8_t ert_bursting;
 } rds_state;
 
-// ODA
+/* ODA */
 static struct rds_oda_t odas[MAX_ODAS];
 static struct {
 	uint8_t current;
 	uint8_t count;
 } oda_state;
 
-// RT+
+/* RT+ */
 static struct {
 	uint8_t group;
 	uint8_t running;
@@ -83,7 +83,7 @@ static struct {
 
 static void register_oda(uint8_t group, uint16_t aid, uint16_t scb) {
 
-	if (oda_state.count == MAX_ODAS) return; // can't accept more ODAs
+	if (oda_state.count == MAX_ODAS) return; /* can't accept more ODAs */
 
 	odas[oda_state.count].group = group;
 	odas[oda_state.count].aid = aid;
@@ -126,25 +126,25 @@ static void get_rds_ps_group(uint16_t *blocks) {
 
 	if (ps_state == 0 && rds_state.ps_update) {
 		strncpy(ps_text, rds_data.ps, PS_LENGTH);
-		rds_state.ps_update = 0; // rewind
+		rds_state.ps_update = 0; /* rewind */
 	}
 
-	// TA
+	/* TA */
 	blocks[1] |= (rds_data.ta & 1) << 4;
 
-	// MS
+	/* MS */
 	blocks[1] |= (rds_data.ms & 1) << 3;
 
-	// DI
+	/* DI */
 	blocks[1] |= ((rds_data.di >> (3 - ps_state)) & 1) << 2;
 
-	// PS segment address
+	/* PS segment address */
 	blocks[1] |= (ps_state & INT8_L2);
 
-	// AF
+	/* AF */
 	blocks[2] = get_next_af();
 
-	// PS
+	/* PS */
 	blocks[3] = ps_text[ps_state*2] << 8 | ps_text[ps_state*2+1];
 
 	ps_state++;
@@ -163,7 +163,7 @@ static void get_rds_rt_group(uint16_t *blocks) {
 		strncpy(rt_text, rds_data.rt, RT_LENGTH);
 		rds_state.ab ^= 1;
 		rds_state.rt_update = 0;
-		rt_state = 0; // rewind when new RT arrives
+		rt_state = 0; /* rewind when new RT arrives */
 	}
 
 	blocks[1] |= 2 << 12;
@@ -181,7 +181,7 @@ static void get_rds_rt_group(uint16_t *blocks) {
 static void get_rds_oda_group(uint16_t *blocks) {
 	blocks[1] |= 3 << 12;
 
-	// select ODA
+	/* select ODA */
 	struct rds_oda_t this_oda = odas[oda_state.current];
 
 	blocks[1] |= GET_GROUP_TYPE(this_oda.group) << 1;
@@ -198,14 +198,14 @@ static void get_rds_oda_group(uint16_t *blocks) {
  */
 static uint8_t get_rds_ct_group(uint16_t *blocks) {
 	static uint8_t latest_minutes;
-	struct tm utc;
+	struct tm utc, local_time;
 
-	// Check time
+	/* Check time */
 	time_t now = time(NULL);
 	memcpy(&utc, gmtime(&now), sizeof(struct tm));
 
 	if (utc.tm_min != latest_minutes) {
-		// Generate CT group
+		/* Generate CT group */
 		latest_minutes = utc.tm_min;
 
 		uint8_t l = utc.tm_mon <= 1 ? 1 : 0;
@@ -217,8 +217,11 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 		blocks[2] = (mjd<<1) | (utc.tm_hour>>4);
 		blocks[3] = (utc.tm_hour & 0xF)<<12 | utc.tm_min<<6;
 
+		/* get local time */
+		memcpy(&local_time, localtime(&now), sizeof(struct tm));
+
 		/* tm_gmtoff doesn't exist in POSIX but __tm_gmtoff does */
-		int16_t offset = utc.__tm_gmtoff / (30 * 60);
+		int16_t offset = local_time.__tm_gmtoff / (30 * 60);
 		blocks[3] |= abs(offset) & INT8_L5;
 		if (offset < 0) blocks[3] |= 1 << 5;
 
@@ -267,7 +270,7 @@ static void get_rds_lps_group(uint16_t *blocks) {
 }
 #endif
 
-// RT+
+/* RT+ */
 static void init_rtplus(uint8_t group) {
 	register_oda(group, 0x4BD7 /* RT+ AID */, 0);
 	rtplus_cfg.group = group;
@@ -280,7 +283,7 @@ static void init_ert(uint8_t group) {
 		/* B version groups cannot be used for eRT */
 		return;
 	}
-	register_oda(group, 0x6552 /* eRT AID */, 0);
+	register_oda(group, 0x6552 /* eRT AID */, 0 /* UTF-8 */);
 	ert_cfg.group = group;
 }
 
@@ -294,7 +297,7 @@ static void init_ertp(uint8_t group) {
 /* RT+ group
  */
 static void get_rds_rtplus_group(uint16_t *blocks) {
-	// RT+ block format
+	/* RT+ block format */
 	blocks[1] |= GET_GROUP_TYPE(rtplus_cfg.group) << 12;
 	blocks[1] |= GET_GROUP_VER(rtplus_cfg.group) << 11;
 	blocks[1] |= rtplus_cfg.toggle << 4 | rtplus_cfg.running << 3;
@@ -336,7 +339,7 @@ static void get_rds_ert_group(uint16_t *blocks) {
 
 /* eRT+ group */
 static void get_rds_ertplus_group(uint16_t *blocks) {
-	// RT+ block format
+	/* RT+ block format */
 	blocks[1] |= GET_GROUP_TYPE(ertplus_cfg.group) << 12;
 	blocks[1] |= GET_GROUP_VER(ertplus_cfg.group) << 11;
 	blocks[1] |= ertplus_cfg.toggle << 4 | ertplus_cfg.running << 3;
@@ -358,24 +361,24 @@ static void get_rds_ertplus_group(uint16_t *blocks) {
 static uint8_t get_rds_other_groups(uint16_t *blocks) {
 	static uint8_t group[GROUP_15B];
 
-	// Type 3A groups
+	/* Type 3A groups */
 	if (++group[GROUP_3A] >= 20) {
 		group[GROUP_3A] = 0;
 		get_rds_oda_group(blocks);
 		return 1;
 	}
 
-	// Type 10A groups
+	/* Type 10A groups */
 	if (rds_data.ptyn[0]) {
 		if (++group[GROUP_10A] >= 10) {
 			group[GROUP_10A] = 0;
-			// Do not generate a 10A group if PTYN is off
+			/* Do not generate a 10A group if PTYN is off */
 			get_rds_ptyn_group(blocks);
 			return 1;
 		}
 	}
 
-	// Type 11A groups
+	/* Type 11A groups */
 	if (++group[rtplus_cfg.group] >= 30) {
 		group[rtplus_cfg.group] = 0;
 		get_rds_rtplus_group(blocks);
@@ -418,21 +421,21 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 static void get_rds_group(uint16_t *blocks) {
 	static uint8_t state;
 
-	// Basic block data
+	/* Basic block data */
 	blocks[0] = rds_data.pi;
 	blocks[1] = (rds_data.tp & 1) << 10 | (rds_data.pty & INT8_L5) << 5;
 	blocks[2] = 0;
 	blocks[3] = 0;
 
-	// Generate block content
-	// CT (clock time) has priority on other group types
+	/* Generate block content */
+	/* CT (clock time) has priority on other group types */
 	if (!(rds_data.tx_ctime && get_rds_ct_group(blocks))) {
-		if (!get_rds_other_groups(blocks)) { // Other groups
-			// These are always transmitted
-			if (!state) { // Type 0A groups
+		if (!get_rds_other_groups(blocks)) { /* Other groups */
+			/* These are always transmitted */
+			if (!state) { /* Type 0A groups */
 				get_rds_ps_group(blocks);
 				state++;
-			} else { // Type 2A groups
+			} else { /* Type 2A groups */
 				get_rds_rt_group(blocks);
 				if (!rds_state.rt_bursting) state++;
 			}
@@ -461,7 +464,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 #endif
 	}
 
-	// AF
+	/* AF */
 	if (rds_params.af.num_afs) {
 		set_rds_af(rds_params.af);
 		show_af_list(rds_params.af);
@@ -479,7 +482,7 @@ void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
 	set_rds_ms(1);
 	set_rds_di(DI_STEREO);
 
-	// Assign the RT+ AID to group 11A
+	/* Assign the RT+ AID to group 11A */
 	init_rtplus(GROUP_11A);
 
 #ifdef RDS2
@@ -531,7 +534,7 @@ void set_rds_rt(char *rt) {
 			rds_state.rt_segments++;
 		}
 	} else {
-		// Default to 16 if RT is 64 characters long
+		/* Default to 16 if RT is 64 characters long */
 		rds_state.rt_segments = 16;
 	}
 

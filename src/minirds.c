@@ -44,23 +44,22 @@ static inline void float2char2channel(
 	for (uint16_t i = 0; i < frames; i++) {
 		sample = lroundf((inbuf[j] + inbuf[j+1]) * 16383.5f);
 
-		// convert from short to char
+		/* convert from short to char */
 		lower = sample & 255;
 		sample >>= 8;
 		upper = sample & 255;
 
-		// balanced output
-		outbuf[k+0] = +lower;
-		outbuf[k+1] = +upper;
-		outbuf[k+2] = -lower;
-		outbuf[k+3] = -upper;
+		outbuf[k+0] = lower;
+		outbuf[k+1] = upper;
+		outbuf[k+2] = lower;
+		outbuf[k+3] = upper;
 
 		j += 2;
 		k += 4;
 	}
 }
 
-// threads
+/* threads */
 static void *control_pipe_worker() {
 	while (!stop_rds) {
 		poll_control_pipe();
@@ -129,7 +128,7 @@ static void show_version() {
 	printf("MiniRDS version %s\n", VERSION);
 }
 
-// check MPX volume level
+/* check MPX volume level */
 static uint8_t check_mpx_vol(uint8_t volume) {
 	if (volume < 1 || volume > 100) {
 		fprintf(stderr, "Output volume must be between 1-100.\n");
@@ -152,7 +151,7 @@ int main(int argc, char **argv) {
 	char ptyn[PTYN_LENGTH+1];
 	uint8_t volume = 50;
 
-	// buffers
+	/* buffers */
 	float *mpx_buffer;
 	float *out_buffer;
 	char *dev_out;
@@ -163,15 +162,15 @@ int main(int argc, char **argv) {
 	int8_t r;
 	size_t frames;
 
-	// SRC
+	/* SRC */
 	SRC_STATE *src_state;
 	SRC_DATA src_data;
 
-	// AO
+	/* AO */
 	ao_device *device;
 	ao_sample_format format;
 
-	// pthread
+	/* pthread */
 	pthread_attr_t attr;
 	pthread_t control_pipe_thread;
 	pthread_mutex_t control_pipe_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -222,57 +221,57 @@ keep_parsing_opts:
 	if (opt == -1) goto done_parsing_opts;
 
 	switch (opt) {
-		case 'm': //volume
+		case 'm': /* volume */
 			volume = strtoul(optarg, NULL, 10);
 			if (check_mpx_vol(volume) > 0) return 1;
 			break;
 
-		case 'i': //pi
+		case 'i': /* pi */
 			rds_params.pi = strtoul(optarg, NULL, 16);
 			break;
 
-		case 's': //ps
+		case 's': /* ps */
 			strncpy(ps, optarg, PS_LENGTH);
 			memcpy(rds_params.ps, ps, PS_LENGTH);
 			break;
 
-		case 'r': //rt
+		case 'r': /* rt */
 			strncpy(rt, optarg, RT_LENGTH);
 			memcpy(rds_params.rt, rt, RT_LENGTH);
 			break;
 
-		case 'p': //pty
+		case 'p': /* pty */
 			rds_params.pty = strtoul(optarg, NULL, 10);
 			break;
 
-		case 'T': //tp
+		case 'T': /* tp */
 			rds_params.tp = strtoul(optarg, NULL, 10);
 			break;
 
-		case 'A': //af
+		case 'A': /* af */
 			if (add_rds_af(&rds_params.af, strtof(optarg, NULL)) == 1) return 1;
 			break;
 
-		case 'P': //ptyn
+		case 'P': /* ptyn */
 			strncpy(ptyn, optarg, PTYN_LENGTH);
 			memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
 			break;
 
 #ifdef RBDS
-		case 'S': //callsign
+		case 'S': /* callsign */
 			strncpy(callsign, optarg, 4);
 			break;
 #endif
 
-		case 'C': //ctl
+		case 'C': /* ctl */
 			strncpy(control_pipe, optarg, 50);
 			break;
 
-		case 'v': // version
+		case 'v': /* version */
 			show_version();
 			return 0;
 
-		case 'h': //help
+		case 'h': /* help */
 		case '?':
 		default:
 			show_help(argv[0], rds_params);
@@ -283,30 +282,30 @@ keep_parsing_opts:
 
 done_parsing_opts:
 
-	// Initialize pthread stuff
+	/* Initialize pthread stuff */
 	pthread_mutex_init(&control_pipe_mutex, NULL);
 	pthread_cond_init(&control_pipe_cond, NULL);
 	pthread_mutex_init(&net_ctl_mutex, NULL);
 	pthread_cond_init(&net_ctl_cond, NULL);
 	pthread_attr_init(&attr);
 
-	// Setup buffers
+	/* Setup buffers */
 	mpx_buffer = malloc(NUM_MPX_FRAMES_IN * 2 * sizeof(float));
 	out_buffer = malloc(NUM_MPX_FRAMES_OUT * 2 * sizeof(float));
 	dev_out = malloc(NUM_MPX_FRAMES_OUT * 2 * sizeof(int16_t) * sizeof(char));
 
-	// Gracefully stop the encoder on SIGINT or SIGTERM
+	/* Gracefully stop the encoder on SIGINT or SIGTERM */
 	signal(SIGINT, stop);
 	signal(SIGTERM, stop);
 
-	// Initialize the baseband generator
+	/* Initialize the baseband generator */
 	fm_mpx_init(MPX_SAMPLE_RATE);
 	set_output_volume(volume);
 
-	// Initialize the RDS modulator
+	/* Initialize the RDS modulator */
 	init_rds_encoder(rds_params, callsign);
 
-	// AO format
+	/* AO format */
 	memset(&format, 0, sizeof(struct ao_sample_format));
 	format.channels = 2;
 	format.bits = 16;
@@ -322,7 +321,7 @@ done_parsing_opts:
 		goto exit;
 	}
 
-	// SRC out (MPX -> output)
+	/* SRC out (MPX -> output) */
 	memset(&src_data, 0, sizeof(SRC_DATA));
 	src_data.input_frames = NUM_MPX_FRAMES_IN;
 	src_data.output_frames = NUM_MPX_FRAMES_OUT;
@@ -337,11 +336,11 @@ done_parsing_opts:
 		goto exit;
 	}
 
-	// Initialize the control pipe reader
+	/* Initialize the control pipe reader */
 	if (control_pipe[0]) {
 		if (open_control_pipe(control_pipe) == 0) {
 			fprintf(stderr, "Reading control commands on %s.\n", control_pipe);
-			// Create control pipe polling worker
+			/* Create control pipe polling worker */
 			r = pthread_create(&control_pipe_thread, &attr, control_pipe_worker, NULL);
 			if (r < 0) {
 				fprintf(stderr, "Could not create control pipe thread.\n");
@@ -377,7 +376,7 @@ done_parsing_opts:
 
 		float2char2channel(out_buffer, dev_out, frames);
 
-		// num_bytes = audio frames * channels * bytes per sample
+		/* num_bytes = audio frames * channels * bytes per sample */
 		if (!ao_play(device, dev_out, frames * 2 * sizeof(int16_t))) {
 			fprintf(stderr, "Error: could not play audio.\n");
 			break;
@@ -393,7 +392,7 @@ done_parsing_opts:
 
 exit:
 	if (control_pipe[0]) {
-		// shut down threads
+		/* shut down threads */
 		fprintf(stderr, "Waiting for pipe thread to shut down.\n");
 		pthread_cond_signal(&control_pipe_cond);
 		pthread_join(control_pipe_thread, NULL);

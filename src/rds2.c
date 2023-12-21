@@ -25,7 +25,7 @@
  * RDS2-specific stuff
  */
 
-// station logo
+/* station logo */
 extern unsigned char station_logo[];
 extern unsigned int station_logo_len;
 
@@ -57,20 +57,24 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	}
 
 	rft->file_data = malloc(rft->num_segs * 5);
+	/* unused data must be padded with zeroes */
 	memset(rft->file_data, 0, rft->num_segs * 5);
 	memcpy(rft->file_data, img, len);
 
-	rft->crc_mode = 7; /* autoselect */
+	rft->crc_mode = CRC_MODE_AUTO; /* autoselect */
 
-	if (len > 81960) {
+	if (len >= 81920) {
 		chunk_size = 64;
+		rft->crc_mode = CRC_MODE_64_GROUPS;
 	} else if (len > 40960) {
 		chunk_size = 32;
+		rft->crc_mode = CRC_MODE_32_GROUPS;
 	} else {
 		chunk_size = 16;
+		rft->crc_mode = CRC_MODE_16_GROUPS;
 	}
 
-	/* RFT packet size = chunk size * 5 */
+	/* RFT packet size = chunk size * 5 data bytes per group */
 	packet_size = chunk_size * 5;
 
 	while (chunk_counter < len) {
@@ -82,6 +86,7 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 
 	chunks = malloc(packet_size);
 
+	/* calculate CRC's for chunks */
 	for (uint16_t i = 0; i < rft->num_chunks; i++) {
 		memset(chunks, 0, packet_size);
 		memcpy(chunks,
@@ -98,26 +103,120 @@ static void exit_rft(struct rft_t *rft) {
 }
 
 void init_rds2_encoder() {
-
 	/* create a new stream */
-	init_rft(&station_logo_group, 8, station_logo, station_logo_len);
+	init_rft(&station_logo_group,
+		0 /* pipe number */,
+		station_logo,
+		station_logo_len
+	);
 
 }
 
-static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
-
+/*
+ * RFT variant 0 (file metadata)
+ *
+ * Carries:
+ * - Function Header
+ * - Pipe Number
+ * - ODA ID (0xFF7F)
+ * - Variant code (0)
+ * - CRC-16 Flag
+ * - File ID
+ * - File size (18 bits)
+ */
+static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
 	/* function header */
-	blocks[0] = 2 << 12;
+	blocks[0] = (2 << 6) << 8;
+	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
 
-	/* pipe number */
-	blocks[0] |= (rft->channel & INT8_L4) << 8;
+	/* ODA ID */
+	blocks[1] = 0xFF7F;
 
-	/* toggle */
-	blocks[0] |= (0 & 1) << 7;
+	blocks[2] = (0 & INT18_L4) << 12; /* variant code */
+	blocks[2] |= ((rft->crc_mode ? 1 : 0) & INT8_L1) << 11; /* CRC */
+	blocks[2] |= (1 & INT8_L3) << 8; /* file version */
+	blocks[2] |= (1 & INT8_L6) << 2; /* file ID */
+	blocks[2] |= (rft->file_len & INT18_U2) >> 16;
+
+	blocks[3] = rft->file_len & INT16_ALL;
+}
+
+/*
+ * RFT variant 1 (chunk to CRC mappings)
+ *
+ * Carries:
+ * - Function Header
+ * - Pipe Number
+ * - ODA ID (0xFF7F)
+ * - Variant Code (1)
+ * - CRC Mode
+ * - Chunk Address (9 bits)
+ * - CRC
+ */
+static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
+	/* function header */
+	blocks[0] = (2 << 6) << 8;
+	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
+
+	/* ODA ID */
+	blocks[1] = 0xFF7F;
+
+	blocks[2] = (1 & INT8_L4) << 12; /* variant code */
+	blocks[2] |= (rft->crc_mode & INT8_L3) << 9; /* CRC mode */
+	/* chunk address */
+	blocks[2] |= rft->seg_addr;
+
+	/* CRC */
+	blocks[3] = rft->crcs[rft->seg_addr];
+}
+
+/*
+ * RFT variants 2-15 (custom variants)
+ *
+ * Carries:
+ * - Function Header
+ * - Pipe Number
+ * - Variant code
+ * - Variant data:
+ *   - 2-7 carries file-related data
+ *   - 8-15 ODA data that is not related
+ */
+#if 0
+static void get_rft_var_2_15_data_group(struct rft_t *rft, uint16_t *blocks) {
+	/* function header */
+	blocks[0] = (2 << 6) << 8;
+	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
+
+	/* ODA ID */
+	blocks[1] = 0xFF7F;
+
+	blocks[2] = (8 & INT8_L4) << 12; /* variant code */
+	blocks[2] |= 0 & INT16_L12;
+	blocks[3] = 0 & INT16_ALL;
+}
+#endif
+
+/*
+ * RFT data group (for file data TXing)
+ *
+ * Carries:
+ * - Function Header
+ * - Pipe Number
+ * - Toggle Bit
+ * - Segment address (15 bits)
+ * - File data (5 bytes per group)
+ */
+static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
+	/* function header */
+	blocks[0] = (2) << 12;
+	blocks[0] |= (rft->channel & INT8_L4) << 8; /* pipe number */
+
+	/* toggle bit */
+	blocks[0] |= 0 << 7;
 
 	/* segment address */
-	blocks[0] |= (rft->seg_addr >> 8) & INT8_L7;
-	blocks[1] = (rft->seg_addr & 255) << 8;
+	blocks[0] |= (rft->seg_addr & INT16_U7) >> 7;
+	blocks[1] = (rft->seg_addr & INT16_L8) << 8;
 
 	/* image data */
 	blocks[1] |= rft->file_data[rft->seg_addr*5+0];
@@ -135,88 +234,29 @@ static void get_rft_data_group(struct rft_t *rft, uint16_t *blocks) {
 	}
 }
 
-/*
- * RFT metadata
- *
- */
-static void get_rft_variant_0_group(struct rft_t *rft, uint16_t *blocks) {
-
-	/* function header */
-	blocks[0] = (2 << 6) << 8;
-
-	/* pipe number */
-	blocks[0] |= rft->channel & INT8_L4;
-
-	/* ODA AID */
-	blocks[1] = 0xFF7F;
-
-	/* variant code */
-	blocks[2] = (0 & INT8_L4) << 12;
-
-	/* crc flag */
-	blocks[2] |= (rft->crc_mode & 1) << 11;
-
-	/* file version */
-	blocks[2] |= (rft->file_version & INT8_L3) << 8;
-
-	/* file indentification */
-	blocks[2] |= (rft->file_id & INT8_L6) << 2;
-
-	/* file size */
-	blocks[2] |= (rft->file_len & (3 << 16));
-	blocks[3] = rft->file_len & 0xFFFF;
-}
-
-/*
- * RFT CRC16
- *
- */
-static void get_rft_variant_1_group(struct rft_t *rft, uint16_t *blocks) {
-
-	/* function header */
-	blocks[0] = (2 << 6) << 8;
-
-	/* pipe number */
-	blocks[0] |= rft->channel & INT8_L4;
-
-	/* ODA AID */
-	blocks[1] = 0xFF7F;
-
-	/* variant code */
-	blocks[2] = (1 & INT8_L4) << 12;
-
-	/* mode */
-	blocks[2] |= (rft->crc_mode & INT8_L3) << 9;
-
-	/* chunk address */
-	blocks[2] |= rft->chunk_addr;
-
-	/* crc */
-	blocks[3] = rft->crcs[rft->chunk_addr];
-
-	rft->chunk_addr++;
-	if (rft->chunk_addr == rft->num_chunks) rft->chunk_addr = 0;
-}
-
 static void get_rft_stream(uint16_t *blocks) {
 	static uint8_t rft_state;
 
 	switch (rft_state) {
 		case 0:
-			get_rft_variant_0_group(&station_logo_group, blocks);
+			get_rft_var_0_data_group(&station_logo_group, blocks);
 			break;
-
 		case 1:
-			get_rft_variant_1_group(&station_logo_group, blocks);
+			get_rft_var_1_data_group(&station_logo_group, blocks);
 			break;
+#if 0
+		case 2:
+			get_rft_var_2_15_data_group(&station_logo_group, blocks);
+			break;
+#endif
 
 		default:
-			get_rft_data_group(&station_logo_group, blocks);
+			get_rft_file_data_group(&station_logo_group, blocks);
 			break;
 	}
 
 	rft_state++;
-	if (rft_state == 16) rft_state = 0;
+	if (rft_state == 4) rft_state = 0;
 }
 
 /*
@@ -225,9 +265,9 @@ static void get_rft_stream(uint16_t *blocks) {
 static void get_rds2_group(uint8_t stream_num, uint16_t *blocks) {
 
 	switch (stream_num) {
-	case 0:
 	case 1:
 	case 2:
+	case 3:
 	default:
 		get_rft_stream(blocks);
 		break;
@@ -242,7 +282,7 @@ static void get_rds2_group(uint8_t stream_num, uint16_t *blocks) {
 void get_rds2_bits(uint8_t stream, uint8_t *bits) {
 	static uint16_t out_blocks[GROUP_LENGTH];
 	get_rds2_group(stream, out_blocks);
-	add_checkwords(out_blocks, bits);
+	add_checkwords_rds2(out_blocks, bits);
 }
 
 void exit_rds2_encoder() {
