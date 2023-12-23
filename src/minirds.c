@@ -145,7 +145,9 @@ int main(int argc, char **argv) {
 		.rt = "MiniRDS: Software RDS encoder",
 		.pi = 0x1000
 	};
+#ifdef RBDS
 	char callsign[5];
+#endif
 	char ps[PS_LENGTH+1];
 	char rt[RT_LENGTH+1];
 	char ptyn[PTYN_LENGTH+1];
@@ -210,7 +212,9 @@ int main(int argc, char **argv) {
 	};
 
 	memset(control_pipe, 0, 51);
+#ifdef RBDS
 	memset(callsign, 0, 5);
+#endif
 	memset(ps, 0, PS_LENGTH + 1);
 	memset(rt, 0, RT_LENGTH + 1);
 	memset(ptyn, 0, PTYN_LENGTH + 1);
@@ -303,7 +307,11 @@ done_parsing_opts:
 	set_output_volume(volume);
 
 	/* Initialize the RDS modulator */
+#ifdef RBDS
 	init_rds_encoder(rds_params, callsign);
+#else
+	init_rds_encoder(rds_params);
+#endif
 
 	/* AO format */
 	memset(&format, 0, sizeof(struct ao_sample_format));

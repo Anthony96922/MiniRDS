@@ -20,6 +20,7 @@
 #include "rds.h"
 #include "fm_mpx.h"
 #include "lib.h"
+#include "ascii_cmd.h"
 
 /*
  * If a command is received, process it and update the RDS data.
@@ -27,9 +28,9 @@
  */
 void process_ascii_cmd(char *cmd) {
 	char *arg;
-	uint8_t cmd_len = 0;
+	uint16_t cmd_len = 0;
 
-	while (cmd[cmd_len] != 0 && cmd_len < 255)
+	while (cmd[cmd_len] != 0 && cmd_len < CTL_BUFFER_SIZE)
 		cmd_len++;
 
 	if (cmd_len > 3 && cmd[2] == ' ') {
@@ -37,6 +38,12 @@ void process_ascii_cmd(char *cmd) {
 
 		if (strncmp(cmd, "PI", 2) == 0) {
 			arg[4] = 0;
+#ifdef RBDS
+			if (arg[0] == 'K' || arg[0] == 'W' ||
+				arg[0] == 'k' || arg[0] == 'w') {
+				set_rds_pi(callsign2pi(arg));
+			} else
+#endif
 			set_rds_pi(strtoul(arg, NULL, 16));
 			return;
 		}
@@ -77,10 +84,17 @@ void process_ascii_cmd(char *cmd) {
 			return;
 		}
 		if (strncmp(cmd, "RTP", 3) == 0) {
-			uint8_t tags[8];
+			char tag_names[2][32];
+			uint8_t tags[6];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
+				set_rds_rtplus_tags(tags);
+			} else if (sscanf(arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
+				tag_names[0], &tags[1], &tags[2],
+				tag_names[1], &tags[4], &tags[5]) == 6) {
+				tags[0] = get_rtp_tag_id(tag_names[0]);
+				tags[3] = get_rtp_tag_id(tag_names[1]);
 				set_rds_rtplus_tags(tags);
 			}
 			return;
@@ -90,9 +104,11 @@ void process_ascii_cmd(char *cmd) {
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu",
 				&gains[0], &gains[1], &gains[2], &gains[3],
 				&gains[4]) == 5) {
-				for (uint8_t i = 0; i < 5; i++) {
-					set_carrier_volume(i, gains[i]);
-				}
+				set_carrier_volume(0, gains[0]);
+				set_carrier_volume(1, gains[1]);
+				set_carrier_volume(2, gains[2]);
+				set_carrier_volume(3, gains[3]);
+				set_carrier_volume(4, gains[4]);
 			}
 			return;
 		}
@@ -101,7 +117,6 @@ void process_ascii_cmd(char *cmd) {
 			set_output_volume(strtoul(arg, NULL, 10));
 			return;
 		}
-#ifdef RDS2
 		if (strncmp(cmd, "LPS", 3) == 0) {
 			arg[LPS_LENGTH] = 0;
 			if (arg[0] == '-') {
@@ -124,7 +139,6 @@ void process_ascii_cmd(char *cmd) {
 			}
 			return;
 		}
-#endif /* RDS2 */
 	}
 
 	if (cmd_len > 5 && cmd[4] == ' ') {
@@ -150,20 +164,24 @@ void process_ascii_cmd(char *cmd) {
 			}
 			return;
 		}
-#ifdef RDS2
 		if (strncmp(cmd, "ERTP", 3) == 0) {
-			uint8_t tags[8];
+			char tag_names[2][32];
+			uint8_t tags[6];
 			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
 				set_rds_ertplus_tags(tags);
+			} else if (sscanf(arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
+				tag_names[0], &tags[1], &tags[2],
+				tag_names[1], &tags[4], &tags[5]) == 6) {
+				tags[0] = get_rtp_tag_id(tag_names[0]);
+				tags[3] = get_rtp_tag_id(tag_names[1]);
+				set_rds_ertplus_tags(tags);
 			}
 			return;
 		}
-#endif /* RDS2 */
 	}
 
-#ifdef RDS2
 	if (cmd_len > 6 && cmd[5] == ' ') {
 		arg = cmd + 6;
 
@@ -177,5 +195,4 @@ void process_ascii_cmd(char *cmd) {
 			return;
 		}
 	}
-#endif /* RDS2 */
 }

@@ -13,7 +13,7 @@ RDS2 = 1
 RDS2_DEBUG = 0
 
 # NRSC RBDS (FCC)
-# Uncomment for NRSC LF/MF AF coding and PTY list
+# Set to 1 for NRSC LF/MF AF coding and PTY list
 RBDS = 1
 
 CC = gcc

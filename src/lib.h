@@ -21,8 +21,11 @@ extern void msleep(unsigned long ms);
 extern char *get_pty(uint8_t pty);
 extern uint8_t get_rtp_tag_id(char *rtp_tag_name);
 extern char *get_rtp_tag_name(uint8_t rtp_tag);
+#ifdef RDS2
+extern void add_checkwords(uint16_t *blocks, uint8_t *bits, bool rds2);
+#else
 extern void add_checkwords(uint16_t *blocks, uint8_t *bits);
-extern void add_checkwords_rds2(uint16_t *blocks, uint8_t *bits);
+#endif
 extern uint16_t callsign2pi(char *callsign);
 extern uint8_t add_rds_af(struct rds_af_t *af_list, float freq);
 extern void show_af_list(struct rds_af_t af_list);

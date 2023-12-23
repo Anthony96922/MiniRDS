@@ -144,8 +144,10 @@ static char *rtp_content_types[64] = {
 uint8_t get_rtp_tag_id(char *rtp_tag_name) {
 	uint8_t tag_id = 0;
 	for (uint8_t i = 0; i < 64; i++) {
-		if (strcmp(rtp_tag_name, rtp_content_types[i]) == 0)
+		if (strcmp(rtp_tag_name, rtp_content_types[i]) == 0) {
 			tag_id = i;
+			break;
+		}
 	}
 	return tag_id;
 }
@@ -163,22 +165,6 @@ static uint16_t offset_words[] = {
 	0x350  /*  C' */
 };
 
-/* Classical CRC computation */
-static inline uint16_t crc(uint16_t block) {
-	uint16_t crc = 0;
-
-	for (int j = 0; j < BLOCK_SIZE; j++) {
-		uint8_t bit = (block & MSB_BIT) != 0;
-		block <<= 1;
-
-		uint8_t msb = (crc >> (POLY_DEG-1)) & 1;
-		crc <<= 1;
-		if ((msb ^ bit) != 0) crc ^= POLY;
-	}
-
-	return crc;
-}
-
 /* CRC-16 ITU-T/CCITT checkword calculation */
 uint16_t crc16(uint8_t *data, size_t len) {
 	uint16_t crc = 0xffff;
@@ -195,49 +181,75 @@ uint16_t crc16(uint8_t *data, size_t len) {
 }
 
 /* Calculate the checkword for each block and emit the bits */
-void add_checkwords(uint16_t *blocks, uint8_t *bits) {
-	uint16_t block, check, offset_word;
+void add_checkwords(uint16_t *blocks, uint8_t *bits
+#ifdef RDS2
+, bool rds2
+#endif
+) {
+	size_t i, j;
+	uint8_t bit, msb;
+	uint16_t block, block_crc, check, offset_word;
+	bool group_type_b = false;
+#ifdef RDS2
+	bool tunneling_type_b = false;
+#endif
 
-	for (int i = 0; i < GROUP_LENGTH; i++) {
-		block = blocks[i];
-		offset_word = offset_words[i];
-
-		/* Group version B needs C' for block 3 */
-		if (i == 2 && ((blocks[1] >> 11) & 1))
-			offset_word = offset_words[4];
-
-		check = crc(block) ^ offset_word;
-		for (int j = 0; j < BLOCK_SIZE; j++) {
-			*bits++ = ((block & (1 << (BLOCK_SIZE - 1))) != 0);
-			block <<= 1;
-		}
-		for (int j = 0; j < POLY_DEG; j++) {
-			*bits++ = ((check & (1 << (POLY_DEG - 1))) != 0);
-			check <<= 1;
-		}
-	}
-}
+#define IS_TYPE_B(a) \
+	((blocks[1] & INT16_11) == INT16_11)
 
 #ifdef RDS2
-void add_checkwords_rds2(uint16_t *blocks, uint8_t *bits) {
-	uint16_t block, check, offset_word;
+#define TUNNEL_GROUP_TYPE(a) \
+	((a[0] == 0x0000) && (a[1] & INT16_11) == INT16_11)
+#endif
 
-	for (int i = 0; i < GROUP_LENGTH; i++) {
-		block = blocks[i];
-		offset_word = offset_words[i];
+	/* if b11 is 1, then type B */
+	if (
+#ifdef RDS2
+	!rds2 &&
+#endif
+	IS_TYPE_B(blocks))
+		group_type_b = true;
 
-		check = crc(block) ^ offset_word;
-		for (int j = 0; j < BLOCK_SIZE; j++) {
-			*bits++ = ((block & (1 << (BLOCK_SIZE - 1))) != 0);
-			block <<= 1;
+#ifdef RDS2
+	/* for when version B groups are coded in RDS2 */
+	if (rds2 && TUNNEL_GROUP_TYPE(blocks))
+		tunneling_type_b = true;
+#endif
+
+	for (i = 0; i < GROUP_LENGTH; i++) {
+#ifdef RDS2
+		/*
+		 * If tunneling type B groups use offset
+		 * word C' for block 3
+		 */
+		if (rds2 && i == 2 && tunneling_type_b) {
+			offset_word = offset_words[4];
+		} else
+#endif
+		/* Group version B needs C' for block 3 */
+		if (i == 2 && group_type_b) {
+			offset_word = offset_words[4];
+		} else {
+			offset_word = offset_words[i];
 		}
-		for (int j = 0; j < POLY_DEG; j++) {
-			*bits++ = ((check & (1 << (POLY_DEG - 1))) != 0);
-			check <<= 1;
+
+		block = blocks[i];
+
+		/* Classical CRC computation */
+		block_crc = 0;
+		for (j = 0; j < BLOCK_SIZE; j++) {
+			bit = (block & (INT16_15 >> j)) != 0;
+			msb = (block_crc >> (POLY_DEG - 1)) & 1;
+			block_crc <<= 1;
+			if (msb ^ bit) block_crc ^= POLY;
+			*bits++ = bit;
+		}
+		check = block_crc ^ offset_word;
+		for (j = 0; j < POLY_DEG; j++) {
+			*bits++ = (check & ((1 << (POLY_DEG - 1)) >> j)) != 0;
 		}
 	}
 }
-#endif
 
 #ifdef RBDS
 /*

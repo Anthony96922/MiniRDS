@@ -28,7 +28,7 @@
 #define BLOCK_SIZE		16
 
 #define GROUP_LENGTH		4
-#define BITS_PER_GROUP		(GROUP_LENGTH * (BLOCK_SIZE+POLY_DEG))
+#define BITS_PER_GROUP		(GROUP_LENGTH * (BLOCK_SIZE + POLY_DEG))
 #define RDS_SAMPLE_RATE		190000
 #define SAMPLES_PER_BIT		160
 #define FILTER_SIZE		1120
@@ -94,16 +94,16 @@ typedef struct rds_params_t {
  *
  * 0-15
  */
-#define GROUP_TYPE_0	(0 << 4)
-#define GROUP_TYPE_1	(1 << 4)
-#define GROUP_TYPE_2	(2 << 4)
-#define GROUP_TYPE_3	(3 << 4)
-#define GROUP_TYPE_4	(4 << 4)
-#define GROUP_TYPE_5	(5 << 4)
-#define GROUP_TYPE_6	(6 << 4)
-#define GROUP_TYPE_7	(7 << 4)
-#define GROUP_TYPE_8	(8 << 4)
-#define GROUP_TYPE_9	(9 << 4)
+#define GROUP_TYPE_0	( 0 << 4)
+#define GROUP_TYPE_1	( 1 << 4)
+#define GROUP_TYPE_2	( 2 << 4)
+#define GROUP_TYPE_3	( 3 << 4)
+#define GROUP_TYPE_4	( 4 << 4)
+#define GROUP_TYPE_5	( 5 << 4)
+#define GROUP_TYPE_6	( 6 << 4)
+#define GROUP_TYPE_7	( 7 << 4)
+#define GROUP_TYPE_8	( 8 << 4)
+#define GROUP_TYPE_9	( 9 << 4)
 #define GROUP_TYPE_10	(10 << 4)
 #define GROUP_TYPE_11	(11 << 4)
 #define GROUP_TYPE_12	(12 << 4)
@@ -120,16 +120,16 @@ typedef struct rds_params_t {
 #define GROUP_VER_B	1
 
 /* Version A groups */
-#define GROUP_0A	(GROUP_TYPE_0 | GROUP_VER_A)
-#define GROUP_1A	(GROUP_TYPE_1 | GROUP_VER_A)
-#define GROUP_2A	(GROUP_TYPE_2 | GROUP_VER_A)
-#define GROUP_3A	(GROUP_TYPE_3 | GROUP_VER_A)
-#define GROUP_4A	(GROUP_TYPE_4 | GROUP_VER_A)
-#define GROUP_5A	(GROUP_TYPE_5 | GROUP_VER_A)
-#define GROUP_6A	(GROUP_TYPE_6 | GROUP_VER_A)
-#define GROUP_7A	(GROUP_TYPE_7 | GROUP_VER_A)
-#define GROUP_8A	(GROUP_TYPE_8 | GROUP_VER_A)
-#define GROUP_9A	(GROUP_TYPE_9 | GROUP_VER_A)
+#define GROUP_0A	(GROUP_TYPE_0  | GROUP_VER_A)
+#define GROUP_1A	(GROUP_TYPE_1  | GROUP_VER_A)
+#define GROUP_2A	(GROUP_TYPE_2  | GROUP_VER_A)
+#define GROUP_3A	(GROUP_TYPE_3  | GROUP_VER_A)
+#define GROUP_4A	(GROUP_TYPE_4  | GROUP_VER_A)
+#define GROUP_5A	(GROUP_TYPE_5  | GROUP_VER_A)
+#define GROUP_6A	(GROUP_TYPE_6  | GROUP_VER_A)
+#define GROUP_7A	(GROUP_TYPE_7  | GROUP_VER_A)
+#define GROUP_8A	(GROUP_TYPE_8  | GROUP_VER_A)
+#define GROUP_9A	(GROUP_TYPE_9  | GROUP_VER_A)
 #define GROUP_10A	(GROUP_TYPE_10 | GROUP_VER_A)
 #define GROUP_11A	(GROUP_TYPE_11 | GROUP_VER_A)
 #define GROUP_12A	(GROUP_TYPE_12 | GROUP_VER_A)
@@ -138,16 +138,16 @@ typedef struct rds_params_t {
 #define GROUP_15A	(GROUP_TYPE_15 | GROUP_VER_A)
 
 /* Version B groups */
-#define GROUP_0B	(GROUP_TYPE_0 | GROUP_VER_B)
-#define GROUP_1B	(GROUP_TYPE_1 | GROUP_VER_B)
-#define GROUP_2B	(GROUP_TYPE_2 | GROUP_VER_B)
-#define GROUP_3B	(GROUP_TYPE_3 | GROUP_VER_B)
-#define GROUP_4B	(GROUP_TYPE_4 | GROUP_VER_B)
-#define GROUP_5B	(GROUP_TYPE_5 | GROUP_VER_B)
-#define GROUP_6B	(GROUP_TYPE_6 | GROUP_VER_B)
-#define GROUP_7B	(GROUP_TYPE_7 | GROUP_VER_B)
-#define GROUP_8B	(GROUP_TYPE_8 | GROUP_VER_B)
-#define GROUP_9B	(GROUP_TYPE_9 | GROUP_VER_B)
+#define GROUP_0B	(GROUP_TYPE_0  | GROUP_VER_B)
+#define GROUP_1B	(GROUP_TYPE_1  | GROUP_VER_B)
+#define GROUP_2B	(GROUP_TYPE_2  | GROUP_VER_B)
+#define GROUP_3B	(GROUP_TYPE_3  | GROUP_VER_B)
+#define GROUP_4B	(GROUP_TYPE_4  | GROUP_VER_B)
+#define GROUP_5B	(GROUP_TYPE_5  | GROUP_VER_B)
+#define GROUP_6B	(GROUP_TYPE_6  | GROUP_VER_B)
+#define GROUP_7B	(GROUP_TYPE_7  | GROUP_VER_B)
+#define GROUP_8B	(GROUP_TYPE_8  | GROUP_VER_B)
+#define GROUP_9B	(GROUP_TYPE_9  | GROUP_VER_B)
 #define GROUP_10B	(GROUP_TYPE_10 | GROUP_VER_B)
 #define GROUP_11B	(GROUP_TYPE_11 | GROUP_VER_B)
 #define GROUP_12B	(GROUP_TYPE_12 | GROUP_VER_B)
@@ -249,7 +249,8 @@ typedef struct rds_params_t {
 #define INT18_U2	0x30000
 #define INT18_L4	0x0000f
 
-/* RDS ODA ID group
+/*
+ * RDS ODA ID group
  *
  * This struct is for defining ODAs that will be transmitted
  *
@@ -263,7 +264,25 @@ typedef struct rds_oda_t {
 
 #define MAX_ODAS	8
 
+
+/*
+ * ODA AID
+ *
+ * Extensive list: https://www.nrscstandards.org/committees/dsm/archive/rds-oda-aids.pdf
+ */
+#define	ODA_AID_RTPLUS	0x4bd7
+#define ODA_AID_ERT	0x6552
+#define ODA_AID_ERTPLUS	0x4bd8
+/* RDS2 */
+#define ODA_9BIT_AF	0x6365
+#define ODA_AID_RFT	0xff7f
+#define ODA_AID_RFTPLUS	0xff80
+
+#ifdef RBDS
 extern void init_rds_encoder(struct rds_params_t rds_params, char *call_sign);
+#else
+extern void init_rds_encoder(struct rds_params_t rds_params);
+#endif
 extern void exit_rds_encoder();
 extern void get_rds_bits(uint8_t *bits);
 extern void set_rds_pi(uint16_t pi_code);

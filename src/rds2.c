@@ -25,6 +25,9 @@
  * RDS2-specific stuff
  */
 
+
+/* RFT */
+
 /* station logo */
 extern unsigned char station_logo[];
 extern unsigned int station_logo_len;
@@ -102,23 +105,13 @@ static void exit_rft(struct rft_t *rft) {
 	free(rft->crcs);
 }
 
-void init_rds2_encoder() {
-	/* create a new stream */
-	init_rft(&station_logo_group,
-		0 /* pipe number */,
-		station_logo,
-		station_logo_len
-	);
-
-}
-
 /*
  * RFT variant 0 (file metadata)
  *
  * Carries:
  * - Function Header
  * - Pipe Number
- * - ODA ID (0xFF7F)
+ * - ODA ID
  * - Variant code (0)
  * - CRC-16 Flag
  * - File ID
@@ -126,11 +119,11 @@ void init_rds2_encoder() {
  */
 static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
 	/* function header */
-	blocks[0] = (2 << 6) << 8;
+	blocks[0] = 1 << 15;
 	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
 
 	/* ODA ID */
-	blocks[1] = 0xFF7F;
+	blocks[1] = ODA_AID_RFT;
 
 	blocks[2] = (0 & INT18_L4) << 12; /* variant code */
 	blocks[2] |= ((rft->crc_mode ? 1 : 0) & INT8_L1) << 11; /* CRC */
@@ -147,7 +140,7 @@ static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
  * Carries:
  * - Function Header
  * - Pipe Number
- * - ODA ID (0xFF7F)
+ * - ODA ID
  * - Variant Code (1)
  * - CRC Mode
  * - Chunk Address (9 bits)
@@ -155,19 +148,27 @@ static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
  */
 static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
 	/* function header */
-	blocks[0] = (2 << 6) << 8;
+	blocks[0] = 1 << 15;
 	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
 
 	/* ODA ID */
-	blocks[1] = 0xFF7F;
+	blocks[1] = ODA_AID_RFT;
 
 	blocks[2] = (1 & INT8_L4) << 12; /* variant code */
 	blocks[2] |= (rft->crc_mode & INT8_L3) << 9; /* CRC mode */
 	/* chunk address */
-	blocks[2] |= rft->seg_addr;
+	blocks[2] |= rft->seg_addr_crc;
 
 	/* CRC */
-	blocks[3] = rft->crcs[rft->seg_addr];
+	blocks[3] = rft->crcs[rft->seg_addr_crc];
+
+	rft->seg_addr_crc++;
+	if (rft->seg_addr_crc >= rft->num_segs) {
+#ifdef RDS2_DEBUG
+		fprintf(stderr, "File CRC sending complete\n");
+#endif
+		rft->seg_addr_crc = 0;
+	}
 }
 
 /*
@@ -188,7 +189,7 @@ static void get_rft_var_2_15_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[0] |= (rft->channel & INT8_L4); /* pipe number */
 
 	/* ODA ID */
-	blocks[1] = 0xFF7F;
+	blocks[1] = ODA_AID_RFT;
 
 	blocks[2] = (8 & INT8_L4) << 12; /* variant code */
 	blocks[2] |= 0 & INT16_L12;
@@ -208,29 +209,29 @@ static void get_rft_var_2_15_data_group(struct rft_t *rft, uint16_t *blocks) {
  */
 static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 	/* function header */
-	blocks[0] = (2) << 12;
+	blocks[0] = 2 << 12;
 	blocks[0] |= (rft->channel & INT8_L4) << 8; /* pipe number */
 
 	/* toggle bit */
 	blocks[0] |= 0 << 7;
 
 	/* segment address */
-	blocks[0] |= (rft->seg_addr & INT16_U7) >> 7;
-	blocks[1] = (rft->seg_addr & INT16_L8) << 8;
+	blocks[0] |= (rft->seg_addr_img & INT16_U7) >> 7;
+	blocks[1] = (rft->seg_addr_img & INT16_L8) << 8;
 
 	/* image data */
-	blocks[1] |= rft->file_data[rft->seg_addr*5+0];
-	blocks[2] = rft->file_data[rft->seg_addr*5+1] << 8;
-	blocks[2] |= rft->file_data[rft->seg_addr*5+2];
-	blocks[3] = rft->file_data[rft->seg_addr*5+3] << 8;
-	blocks[3] |= rft->file_data[rft->seg_addr*5+4];
+	blocks[1] |= rft->file_data[rft->seg_addr_img * 5 + 0];
+	blocks[2] =  rft->file_data[rft->seg_addr_img * 5 + 1] << 8;
+	blocks[2] |= rft->file_data[rft->seg_addr_img * 5 + 2];
+	blocks[3] =  rft->file_data[rft->seg_addr_img * 5 + 3] << 8;
+	blocks[3] |= rft->file_data[rft->seg_addr_img * 5 + 4];
 
-	rft->seg_addr++;
-	if (rft->seg_addr >= rft->num_segs) {
+	rft->seg_addr_img++;
+	if (rft->seg_addr_img >= rft->num_segs) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File sending complete\n");
 #endif
-		rft->seg_addr = 0;
+		rft->seg_addr_img = 0;
 	}
 }
 
@@ -282,9 +283,17 @@ static void get_rds2_group(uint8_t stream_num, uint16_t *blocks) {
 void get_rds2_bits(uint8_t stream, uint8_t *bits) {
 	static uint16_t out_blocks[GROUP_LENGTH];
 	get_rds2_group(stream, out_blocks);
-	add_checkwords_rds2(out_blocks, bits);
+	add_checkwords(out_blocks, bits, true);
 }
 
+void init_rds2_encoder() {
+	/* create a new stream */
+	init_rft(&station_logo_group,
+		0 /* pipe number */,
+		station_logo,
+		station_logo_len
+	);
+}
 void exit_rds2_encoder() {
 	exit_rft(&station_logo_group);
 }

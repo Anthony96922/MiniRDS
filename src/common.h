@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include <stdbool.h>
 /* needed for clock time */
 #include <time.h>
 

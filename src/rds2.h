@@ -47,7 +47,9 @@ typedef struct rft_t {
 	uint8_t file_id;
 	uint8_t variant_code;
 
-	uint16_t seg_addr;
+	/* need 2 separate segment address counters */
+	uint16_t seg_addr_crc;
+	uint16_t seg_addr_img;
 	uint16_t num_segs;
 
 	uint16_t chunk_addr;
