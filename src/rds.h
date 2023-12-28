@@ -24,7 +24,6 @@
  */
 #define POLY			0x1B9
 #define POLY_DEG		10
-#define MSB_BIT			0x8000
 #define BLOCK_SIZE		16
 
 #define GROUP_LENGTH		4
@@ -37,9 +36,9 @@
 /* Text items
  *
  */
-#define RT_LENGTH 64
-#define PS_LENGTH 8
-#define PTYN_LENGTH 8
+#define RT_LENGTH	64
+#define PS_LENGTH	8
+#define PTYN_LENGTH	8
 #define LPS_LENGTH	32
 #define ERT_LENGTH	128
 
@@ -51,7 +50,7 @@
 typedef struct rds_af_t {
 	uint8_t num_entries;
 	uint8_t num_afs;
-	uint8_t afs[MAX_AFS*2]; /* doubled for LF/MF coding */
+	uint8_t afs[MAX_AFS * 2]; /* doubled for LF/MF coding */
 } rds_af_t;
 
 /* AF codes */
@@ -249,6 +248,11 @@ typedef struct rds_params_t {
 #define INT18_U2	0x30000
 #define INT18_L4	0x0000f
 
+#define IS_TYPE_B(a)	(a[1] & INT16_11)
+#ifdef RDS2
+#define IS_TUNNELING(a)	(a[0] == 0x0000)
+#endif
+
 /*
  * RDS ODA ID group
  *
@@ -290,9 +294,9 @@ extern void set_rds_rt(char *rt);
 extern void set_rds_ps(char *ps);
 extern void set_rds_lps(char *lps);
 extern void set_rds_ert(char *ert);
-extern void set_rds_rtplus_flags(uint8_t running, uint8_t toggle);
+extern void set_rds_rtplus_flags(uint8_t flags);
 extern void set_rds_rtplus_tags(uint8_t *tags);
-extern void set_rds_ertplus_flags(uint8_t running, uint8_t toggle);
+extern void set_rds_ertplus_flags(uint8_t flags);
 extern void set_rds_ertplus_tags(uint8_t *tags);
 extern void set_rds_ta(uint8_t ta);
 extern void set_rds_pty(uint8_t pty);

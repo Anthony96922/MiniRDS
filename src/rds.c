@@ -100,8 +100,8 @@ static uint16_t get_next_af() {
 			af_state += 1;
 		} else {
 			out = rds_data.af.afs[af_state] << 8;
-			if (rds_data.af.afs[af_state+1])
-				out |= rds_data.af.afs[af_state+1];
+			if (rds_data.af.afs[af_state + 1])
+				out |= rds_data.af.afs[af_state + 1];
 			else
 				out |= AF_CODE_FILLER;
 			af_state += 2;
@@ -126,16 +126,16 @@ static void get_rds_ps_group(uint16_t *blocks) {
 	}
 
 	/* TA */
-	blocks[1] |= (rds_data.ta & 1) << 4;
+	blocks[1] |= rds_data.ta << 4;
 
 	/* MS */
-	blocks[1] |= (rds_data.ms & 1) << 3;
+	blocks[1] |= rds_data.ms << 3;
 
 	/* DI */
-	blocks[1] |= ((rds_data.di >> (3 - ps_state)) & 1) << 2;
+	blocks[1] |= ((rds_data.di >> (3 - ps_state)) & INT8_0) << 2;
 
 	/* PS segment address */
-	blocks[1] |= (ps_state & INT8_L2);
+	blocks[1] |= ps_state;
 
 	/* AF */
 	blocks[2] = get_next_af();
@@ -163,9 +163,9 @@ static void get_rds_rt_group(uint16_t *blocks) {
 	}
 
 	blocks[1] |= 2 << 12;
-	blocks[1] |= (rds_state.ab & 1) << 4;
-	blocks[1] |= rt_state & INT8_L4;
-	blocks[2] =  rt_text[rt_state * 4 + 0] << 8;
+	blocks[1] |= rds_state.ab << 4;
+	blocks[1] |= rt_state;
+	blocks[2] =  rt_text[rt_state * 4    ] << 8;
 	blocks[2] |= rt_text[rt_state * 4 + 1];
 	blocks[3] =  rt_text[rt_state * 4 + 2] << 8;
 	blocks[3] |= rt_text[rt_state * 4 + 3];
@@ -196,7 +196,7 @@ static void get_rds_oda_group(uint16_t *blocks) {
  */
 static uint8_t get_rds_ct_group(uint16_t *blocks) {
 	static uint8_t latest_minutes;
-	struct tm utc, local_time;
+	struct tm *utc, *local_time;
 	time_t now;
 	uint8_t l;
 	uint32_t mjd;
@@ -204,28 +204,32 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 
 	/* Check time */
 	now = time(NULL);
-	memcpy(&utc, gmtime(&now), sizeof(struct tm));
+	utc = gmtime(&now);
 
-	if (utc.tm_min != latest_minutes) {
+	if (utc->tm_min != latest_minutes) {
 		/* Generate CT group */
-		latest_minutes = utc.tm_min;
+		latest_minutes = utc->tm_min;
 
-		l = utc.tm_mon <= 1 ? 1 : 0;
-		mjd = 14956 + utc.tm_mday +
-			(uint32_t)((utc.tm_year - l) * 365.25f) +
-			(uint32_t)((utc.tm_mon + 2 + l * 12) * 30.6001f);
+		l = utc->tm_mon <= 1 ? 1 : 0;
+		mjd = 14956 + utc->tm_mday +
+			(uint32_t)((utc->tm_year - l) * 365.25f) +
+			(uint32_t)((utc->tm_mon + 2 + l * 12) * 30.6001f);
 
 		blocks[1] |= 4 << 12 | (mjd >> 15);
-		blocks[2] = (mjd << 1) | (utc.tm_hour >> 4);
-		blocks[3] = (utc.tm_hour & INT16_L4) << 12 | utc.tm_min << 6;
+		blocks[2] = (mjd << 1) | (utc->tm_hour >> 4);
+		blocks[3] = (utc->tm_hour & INT16_L4) << 12 | utc->tm_min << 6;
 
 		/* get local time (for the offset) */
-		memcpy(&local_time, localtime(&now), sizeof(struct tm));
+		local_time = localtime(&now);
 
 		/* tm_gmtoff doesn't exist in POSIX but __tm_gmtoff does */
-		offset = local_time.__tm_gmtoff / (30 * 60);
-		blocks[3] |= abs(offset) & INT8_L5;
-		if (offset < 0) blocks[3] |= 1 << 5;
+		offset = local_time->__tm_gmtoff / (30 * 60);
+		if (offset < 0) {
+			blocks[3] |= 1 << 5;
+			blocks[3] |= abs(offset);
+		} else {
+			blocks[3] |= offset;
+		}
 
 		return 1;
 	}
@@ -244,8 +248,8 @@ static void get_rds_ptyn_group(uint16_t *blocks) {
 		rds_state.ptyn_update = 0;
 	}
 
-	blocks[1] |= 10 << 12 | (ptyn_state & INT8_L2);
-	blocks[2] =  ptyn_text[ptyn_state * 4 + 0] << 8;
+	blocks[1] |= 10 << 12 | ptyn_state;
+	blocks[2] =  ptyn_text[ptyn_state * 4    ] << 8;
 	blocks[2] |= ptyn_text[ptyn_state * 4 + 1];
 	blocks[3] =  ptyn_text[ptyn_state * 4 + 2] << 8;
 	blocks[3] |= ptyn_text[ptyn_state * 4 + 3];
@@ -264,8 +268,8 @@ static void get_rds_lps_group(uint16_t *blocks) {
 		rds_state.lps_update = 0;
 	}
 
-	blocks[1] |= 15 << 12 | (lps_state & INT8_L3);
-	blocks[2] =  lps_text[lps_state * 4 + 0] << 8;
+	blocks[1] |= 15 << 12 | lps_state;
+	blocks[2] =  lps_text[lps_state * 4    ] << 8;
 	blocks[2] |= lps_text[lps_state * 4 + 1];
 	blocks[3] =  lps_text[lps_state * 4 + 2] << 8;
 	blocks[3] |= lps_text[lps_state * 4 + 3];
@@ -330,8 +334,8 @@ static void get_rds_ert_group(uint16_t *blocks) {
 
 	/* eRT block format */
 	blocks[1] |= GET_GROUP_TYPE(ert_cfg.group) << 12;
-	blocks[1] |= ert_state & INT8_L5;
-	blocks[2] =  ert_text[ert_state * 4 + 0] << 8;
+	blocks[1] |= ert_state;
+	blocks[2] =  ert_text[ert_state * 4    ] << 8;
 	blocks[2] |= ert_text[ert_state * 4 + 1];
 	blocks[3] =  ert_text[ert_state * 4 + 2] << 8;
 	blocks[3] |= ert_text[ert_state * 4 + 3];
@@ -361,12 +365,12 @@ static void get_rds_ertplus_group(uint16_t *blocks) {
 /* Lower priority groups are placed in a subsequence
  */
 static uint8_t get_rds_other_groups(uint16_t *blocks) {
-	static uint8_t group[GROUP_15B];
+	static uint8_t group_counter[GROUP_15B];
 
 	/* Type 3A groups */
 	if (oda_state.count) {
-		if (++group[GROUP_3A] >= 20) {
-			group[GROUP_3A] = 0;
+		if (++group_counter[GROUP_3A] >= 20) {
+			group_counter[GROUP_3A] = 0;
 			get_rds_oda_group(blocks);
 			return 1;
 		}
@@ -374,8 +378,8 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 
 	/* Type 10A groups */
 	if (rds_data.ptyn[0]) {
-		if (++group[GROUP_10A] >= 10) {
-			group[GROUP_10A] = 0;
+		if (++group_counter[GROUP_10A] >= 10) {
+			group_counter[GROUP_10A] = 0;
 			/* Do not generate a 10A group if PTYN is off */
 			get_rds_ptyn_group(blocks);
 			return 1;
@@ -383,32 +387,32 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 	}
 
 	/* RT+ groups */
-	if (++group[rtplus_cfg.group] >= 30) {
-		group[rtplus_cfg.group] = 0;
+	if (++group_counter[rtplus_cfg.group] >= 30) {
+		group_counter[rtplus_cfg.group] = 0;
 		get_rds_rtplus_group(blocks);
 		return 1;
 	}
 
 	/* eRT groups */
 	if (rds_data.ert[0]) {
-		if (++group[ert_cfg.group] >= 3) {
-			group[ert_cfg.group] = 0;
+		if (++group_counter[ert_cfg.group] >= 3) {
+			group_counter[ert_cfg.group] = 0;
 			get_rds_ert_group(blocks);
 			return 1;
 		}
 	}
 
 	/* eRT+ groups */
-	if (++group[ertplus_cfg.group] >= 30) {
-		group[ertplus_cfg.group] = 0;
+	if (++group_counter[ertplus_cfg.group] >= 30) {
+		group_counter[ertplus_cfg.group] = 0;
 		get_rds_ertplus_group(blocks);
 		return 1;
 	}
 
 	/* Long PS groups */
 	if (rds_data.lps[0]) {
-		if (++group[GROUP_15A] >= 15) {
-			group[GROUP_15A] = 0;
+		if (++group_counter[GROUP_15A] >= 15) {
+			group_counter[GROUP_15A] = 0;
 			get_rds_lps_group(blocks);
 			return 1;
 		}
@@ -425,8 +429,8 @@ static void get_rds_group(uint16_t *blocks) {
 
 	/* Basic block data */
 	blocks[0] = rds_data.pi;
-	blocks[1] = (rds_data.tp & INT8_1) << 10;
-	blocks[1] |= (rds_data.pty & INT8_L5) << 5;
+	blocks[1] = rds_data.tp << 10;
+	blocks[1] |= rds_data.pty << 5;
 	blocks[2] = 0;
 	blocks[3] = 0;
 
@@ -447,7 +451,7 @@ static void get_rds_group(uint16_t *blocks) {
 	}
 
 	/* for version B groups */
-	if (blocks[1] & INT16_11) {
+	if (IS_TYPE_B(blocks)) {
 		blocks[2] = rds_data.pi;
 	}
 }
@@ -464,21 +468,19 @@ void get_rds_bits(uint8_t *bits) {
 
 #ifdef RBDS
 void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
+	uint16_t new_pi;
+
+	if (call_sign[3]) {
+		new_pi = callsign2pi(call_sign);
+		if (new_pi) rds_params.pi = new_pi;
+	}
 #else
 void init_rds_encoder(struct rds_params_t rds_params) {
 #endif
-
-#ifdef RBDS
-	if (call_sign[3]) {
-		uint16_t new_pi = callsign2pi(call_sign);
-		if (new_pi) rds_params.pi = new_pi;
-	}
-#endif
-
 	/* AF */
 	if (rds_params.af.num_afs) {
 		set_rds_af(rds_params.af);
-		show_af_list(rds_params.af);
+		fprintf(stderr, show_af_list(rds_params.af));
 	}
 
 	set_rds_pi(rds_params.pi);
@@ -486,8 +488,7 @@ void init_rds_encoder(struct rds_params_t rds_params) {
 	rds_state.ab = 1;
 	set_rds_rt(rds_params.rt);
 	set_rds_pty(rds_params.pty);
-	if (rds_params.ptyn[0])
-		set_rds_ptyn(rds_params.ptyn);
+	set_rds_ptyn(rds_params.ptyn);
 	set_rds_tp(rds_params.tp);
 	set_rds_ct(1);
 	set_rds_ms(1);
@@ -620,9 +621,9 @@ void set_rds_lps(char *lps) {
 	}
 }
 
-void set_rds_rtplus_flags(uint8_t running, uint8_t toggle) {
-	rtplus_cfg.running	= running & INT8_L1;
-	rtplus_cfg.toggle	= toggle & INT8_L1;
+void set_rds_rtplus_flags(uint8_t flags) {
+	rtplus_cfg.running	= (flags & INT8_1) >> 1;
+	rtplus_cfg.toggle	= flags & INT8_0;
 }
 
 void set_rds_rtplus_tags(uint8_t *tags) {
@@ -635,9 +636,9 @@ void set_rds_rtplus_tags(uint8_t *tags) {
 }
 
 /* eRT+ */
-void set_rds_ertplus_flags(uint8_t running, uint8_t toggle) {
-	ertplus_cfg.running	= running & INT8_L1;
-	ertplus_cfg.toggle	= toggle & INT8_L1;
+void set_rds_ertplus_flags(uint8_t flags) {
+	ertplus_cfg.running	= (flags & INT8_1) >> 1;
+	ertplus_cfg.toggle	= flags & INT8_0;
 }
 
 void set_rds_ertplus_tags(uint8_t *tags) {
@@ -676,15 +677,15 @@ void set_rds_ptyn(char *ptyn) {
 }
 
 void set_rds_ta(uint8_t ta) {
-	rds_data.ta = ta & INT8_L1;
+	rds_data.ta = ta & INT8_0;
 }
 
 void set_rds_tp(uint8_t tp) {
-	rds_data.tp = tp & INT8_L1;
+	rds_data.tp = tp & INT8_0;
 }
 
 void set_rds_ms(uint8_t ms) {
-	rds_data.ms = ms & INT8_L1;
+	rds_data.ms = ms & INT8_0;
 }
 
 void set_rds_di(uint8_t di) {
@@ -692,5 +693,5 @@ void set_rds_di(uint8_t di) {
 }
 
 void set_rds_ct(uint8_t ct) {
-	rds_data.tx_ctime = ct & INT8_L1;
+	rds_data.tx_ctime = ct & INT8_0;
 }

@@ -61,9 +61,20 @@ static char *ptys[32] = {
 #endif
 };
 
-char *get_pty(uint8_t pty) {
-	if (pty > 31) pty = 0;
-	return ptys[pty];
+char *get_pty_str(uint8_t pty_code) {
+	if (pty_code > 31) pty_code = 0;
+	return ptys[pty_code];
+}
+
+uint8_t get_pty_code(char *pty_str) {
+	uint8_t pty_code = 0;
+	for (uint8_t i = 0; i < 32; i++) {
+		if (strcmp(pty_str, ptys[i]) == 0) {
+			pty_code = i;
+			break;
+		}
+	}
+	return pty_code;
 }
 
 static char *rtp_content_types[64] = {
@@ -181,11 +192,12 @@ uint16_t crc16(uint8_t *data, size_t len) {
 }
 
 /* Calculate the checkword for each block and emit the bits */
-void add_checkwords(uint16_t *blocks, uint8_t *bits
 #ifdef RDS2
-, bool rds2
+void add_checkwords(uint16_t *blocks, uint8_t *bits, bool rds2)
+#else
+void add_checkwords(uint16_t *blocks, uint8_t *bits)
 #endif
-) {
+{
 	size_t i, j;
 	uint8_t bit, msb;
 	uint16_t block, block_crc, check, offset_word;
@@ -194,25 +206,17 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits
 	bool tunneling_type_b = false;
 #endif
 
-#define IS_TYPE_B(a) \
-	((blocks[1] & INT16_11) == INT16_11)
-
-#ifdef RDS2
-#define TUNNEL_GROUP_TYPE(a) \
-	((a[0] == 0x0000) && (a[1] & INT16_11) == INT16_11)
-#endif
-
 	/* if b11 is 1, then type B */
-	if (
 #ifdef RDS2
-	!rds2 &&
+	if (!rds2 && IS_TYPE_B(blocks))
+#else
+	if (IS_TYPE_B(blocks))
 #endif
-	IS_TYPE_B(blocks))
 		group_type_b = true;
 
 #ifdef RDS2
 	/* for when version B groups are coded in RDS2 */
-	if (rds2 && TUNNEL_GROUP_TYPE(blocks))
+	if (rds2 && IS_TUNNELING(blocks) && IS_TYPE_B(blocks))
 		tunneling_type_b = true;
 #endif
 
@@ -304,7 +308,7 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 
 	/* check if the AF list is full */
 	if (af_list->num_afs + 1 > MAX_AFS) {
-		fprintf(stderr, "Too many AF entries.\n");
+		/* Too many AF entries */
 		return 1;
 	}
 
@@ -320,8 +324,6 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 		af_list->afs[af_list->num_entries+1] = af;
 		af_list->num_entries += 2;
 	} else {
-		fprintf(stderr, "AF must be between 87.6-107.9 MHz "
-			"or 530-1610 kHz (with 10 kHz spacing)\n");
 #else
 	} else if (freq >= 153.0f && freq <= 279.0f) {
 		af = ((uint16_t)(freq - 153.0f) / 9) + 1;
@@ -334,8 +336,6 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 		af_list->afs[af_list->num_entries+1] = af;
 		af_list->num_entries += 2;
 	} else {
-		fprintf(stderr, "AF must be between 87.6-107.9 MHz, "
-			"153-279 kHz or 531-1602 kHz (with 9 kHz spacing)\n");
 #endif
 		return 1;
 	}
@@ -345,41 +345,65 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 	return 0;
 }
 
-void show_af_list(struct rds_af_t af_list) {
+char *show_af_list(struct rds_af_t af_list) {
 	float freq;
-	uint8_t af_is_lf_mf = 0;
+	bool is_lfmf = false;
+	static char outstr[255];
+	uint8_t outstrlen = 0;
 
-	fprintf(stderr, "AF: %u,", af_list.num_afs);
+	outstrlen += sprintf(outstr, "AF: %u,", af_list.num_afs);
 
 	for (uint8_t i = 0; i < af_list.num_entries; i++) {
 		if (af_list.afs[i] == AF_CODE_LFMF_FOLLOWS) {
 			/* The next AF will be for LF/MF */
-			af_is_lf_mf = 1;
+			is_lfmf = true;
 		} else {
-			if (af_is_lf_mf) {
+			if (is_lfmf) {
 #ifdef RBDS
-			/* MF (FCC) */
+				/* MF (FCC) */
 				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
-				fprintf(stderr, " (MF)%.0f", freq);
+				outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
 #else
 				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { /* LF */
 					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
-					fprintf(stderr, " (LF)%.0f", freq);
+					outstrlen += sprintf(outstr + outstrlen, " (LF)%.0f", freq);
 				} else { /*if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) {*/ /* MF */
 					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
-					fprintf(stderr, " (MF)%.0f", freq);
+					outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
 				}
 #endif
 			} else {
 				/* FM */
 				freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
-				fprintf(stderr, " %.1f", freq);
+				outstrlen += sprintf(outstr + outstrlen, " %.1f", freq);
 			}
-			af_is_lf_mf = 0;
+			is_lfmf = false;
 		}
 	}
+	return outstr;
+}
 
-	fprintf(stderr, "\n");
+/*
+ * UTF-8 to RDS char set converter
+ *
+ * Translates certain chars into their RDS equivalents
+ * NOTE!! Only applies to PS and RT. ERT uses UTF-8 (SCB = 1)
+ *
+ * Does not yet work for multi-byte characters such as ë (Tiësto)
+ */
+static unsigned char char_xlat[2][2] = {
+	{'$', 0xab},	/* Ex: Ke$ha */
+	{0, 0}		/* terminator */
+};
+
+void xlat(char *str) {
+	uint8_t i = 0;
+	do {
+		while (char_xlat[i][0] != 0) {
+			if (*str == char_xlat[i][0]) *str = char_xlat[i][1];
+			i++;
+		}
+	} while (*str++ != 0);
 }
 
 /*
@@ -393,20 +417,18 @@ void show_af_list(struct rds_af_t af_list) {
  * bit rotation operations
  *
  */
-static inline uint16_t rotr16(uint16_t value, uint8_t count) {
-	return value >> (count & 15) | value << (16 - (count & 15));
-}
+#define ROTR16(a, b) \
+	(((a) >> ((b) & 15)) | ((a) << (16 - ((b) & 15))))
 
-static inline uint16_t rotl16(uint16_t value, uint8_t count) {
-	return value << (count & 15) | value >> (16 - (count & 15));
-}
+#define ROTL16(a, b) \
+	(((a) << ((b) & 15)) | ((a) >> (16 - ((b) & 15))))
 
 uint16_t tmc_encrypt(uint16_t loc, uint16_t key) {
 	uint16_t enc_loc;
 	uint16_t p1, p2;
 
-	p1 = rotr16(loc, key >> 12);
-	p2 = (key & 0xff) << ((key >> 8) & 0xf);
+	p1 = ROTR16(loc, key >> 12);
+	p2 = (key & 255) << ((key >> 8) & 15);
 	enc_loc = p1 ^ p2;
 
 	return enc_loc;
@@ -416,9 +438,9 @@ uint16_t tmc_decrypt(uint16_t loc, uint16_t key) {
 	uint16_t dec_loc;
 	uint16_t p1, p2;
 
-	p1 = (key & 0xff) << ((key >> 8) & 0xf);
+	p1 = (key & 255) << ((key >> 8) & 15);
 	p2 = loc ^ p1;
-	dec_loc = rotl16(p2, key >> 12);
+	dec_loc = ROTL16(p2, key >> 12);
 
 	return dec_loc;
 }

@@ -28,6 +28,7 @@
 #include "resampler.h"
 #include "net.h"
 #include "lib.h"
+#include "ascii_cmd.h"
 
 static uint8_t stop_rds;
 
@@ -63,7 +64,7 @@ static inline void float2char2channel(
 static void *control_pipe_worker() {
 	while (!stop_rds) {
 		poll_control_pipe();
-		sleep(1);
+		msleep(READ_TIMEOUT_MS);
 	}
 
 	close_control_pipe();
@@ -73,7 +74,7 @@ static void *control_pipe_worker() {
 static void *net_ctl_worker() {
 	while (!stop_rds) {
 		poll_ctl_socket();
-		sleep(1);
+		msleep(READ_TIMEOUT_MS);
 	}
 
 	close_ctl_socket();
@@ -352,12 +353,14 @@ done_parsing_opts:
 			r = pthread_create(&control_pipe_thread, &attr, control_pipe_worker, NULL);
 			if (r < 0) {
 				fprintf(stderr, "Could not create control pipe thread.\n");
+				control_pipe[0] = 0;
 				goto exit;
 			} else {
 				fprintf(stderr, "Created control pipe thread.\n");
 			}
 		} else {
 			fprintf(stderr, "Failed to open control pipe: %s.\n", control_pipe);
+			control_pipe[0] = 0;
 		}
 	}
 
