@@ -305,9 +305,20 @@ uint16_t callsign2pi(char *callsign) {
  */
 uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 	uint16_t af;
+	uint8_t entries_reqd = 1; /* default for FM */
+
+	/*
+	 * check how many slots are required for the frequency
+	 *
+	 * LF/MF (AM) needs 2 entries: one for the
+	 * AM follows code and the freq code itself
+	 */
+	if (freq < 87.6f || freq > 107.9f) { /* is LF/MF */
+		entries_reqd = 2;
+	}
 
 	/* check if the AF list is full */
-	if (af_list->num_afs + 1 > MAX_AFS) {
+	if (af_list->num_afs + entries_reqd > MAX_AFS) {
 		/* Too many AF entries */
 		return 1;
 	}
@@ -318,22 +329,22 @@ uint8_t add_rds_af(struct rds_af_t *af_list, float freq) {
 		af_list->afs[af_list->num_entries] = af;
 		af_list->num_entries += 1;
 #ifdef RBDS
-	} else if (freq >= 530.0f && freq <= 1610.0f) {
-		af = ((uint16_t)(freq - 530.0f) / 10) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
+	} else if (freq >= 540.0f && freq <= 1700.0f) { /* AM 10 kHz spacing */
+		af = (uint16_t)(freq - 540.0f) / 10 + 17;
+		af_list->afs[af_list->num_entries + 0] = AF_CODE_LFMF_FOLLOWS;
+		af_list->afs[af_list->num_entries + 1] = af;
 		af_list->num_entries += 2;
 	} else {
 #else
-	} else if (freq >= 153.0f && freq <= 279.0f) {
-		af = ((uint16_t)(freq - 153.0f) / 9) + 1;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
+	} else if (freq >= 153.0f && freq <= 279.0f) { /* LF */
+		af = (uint16_t)(freq - 153.0f) / 9 + 1;
+		af_list->afs[af_list->num_entries + 0] = AF_CODE_LFMF_FOLLOWS;
+		af_list->afs[af_list->num_entries + 1] = af;
 		af_list->num_entries += 2;
-	} else if (freq >= 531.0f && freq <= 1602.0f) {
-		af = ((uint16_t)(freq - 531.0f) / 9) + 16;
-		af_list->afs[af_list->num_entries+0] = AF_CODE_LFMF_FOLLOWS;
-		af_list->afs[af_list->num_entries+1] = af;
+	} else if (freq >= 531.0f && freq <= 1602.0f) { /* AM 9 kHz spacing */
+		af = (uint16_t)(freq - 531.0f) / 9 + 16;
+		af_list->afs[af_list->num_entries + 0] = AF_CODE_LFMF_FOLLOWS;
+		af_list->afs[af_list->num_entries + 1] = af;
 		af_list->num_entries += 2;
 	} else {
 #endif
@@ -361,7 +372,7 @@ char *show_af_list(struct rds_af_t af_list) {
 			if (is_lfmf) {
 #ifdef RBDS
 				/* MF (FCC) */
-				freq = 530.0f + ((float)(af_list.afs[i] - 16) * 10.0f);
+				freq = 540.0f + ((float)(af_list.afs[i] - 17) * 10.0f);
 				outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
 #else
 				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { /* LF */

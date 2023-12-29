@@ -85,6 +85,7 @@ void process_ascii_cmd(char *str) {
 			rds_af_t new_af;
 			char af_cmd;
 			float af[MAX_AFS], *af_iter;
+
 			arg_count = sscanf(arg,
 				"%c " /* AF command */
 				"%f %f %f %f %f " /* AF list */
@@ -101,16 +102,14 @@ void process_ascii_cmd(char *str) {
 			switch (af_cmd) {
 			case 's': /* set */
 				af_iter = af;
-				new_af.num_entries = 0;
-				new_af.num_afs = 0;
+				memset(&new_af, 0, sizeof(struct rds_af_t));
 				while ((arg_count-- - 1) != 0) {
 					add_rds_af(&new_af, *af_iter++);
 				}
 				set_rds_af(new_af);
 				break;
 			case 'c': /* clear */
-				new_af.num_entries = 0;
-				new_af.num_afs = 0;
+				memset(&new_af, 0, sizeof(struct rds_af_t));
 				set_rds_af(new_af);
 				break;
 			default: /* other */

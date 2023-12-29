@@ -50,7 +50,7 @@
 typedef struct rds_af_t {
 	uint8_t num_entries;
 	uint8_t num_afs;
-	uint8_t afs[MAX_AFS * 2]; /* doubled for LF/MF coding */
+	uint8_t afs[MAX_AFS];
 } rds_af_t;
 
 /* AF codes */
@@ -277,8 +277,8 @@ typedef struct rds_oda_t {
 #define	ODA_AID_RTPLUS	0x4bd7
 #define ODA_AID_ERT	0x6552
 #define ODA_AID_ERTPLUS	0x4bd8
-/* RDS2 */
 #define ODA_9BIT_AF	0x6365
+/* RDS2 */
 #define ODA_AID_RFT	0xff7f
 #define ODA_AID_RFTPLUS	0xff80
 
