@@ -31,7 +31,7 @@ extern uint16_t callsign2pi(char *callsign);
 extern uint8_t add_rds_af(struct rds_af_t *af_list, float freq);
 extern char *show_af_list(struct rds_af_t af_list);
 extern uint16_t crc16(uint8_t *data, size_t len);
-extern void xlat(char *str);
+extern char *xlat(unsigned char *str);
 
 /* TMC */
 extern uint16_t tmc_encrypt(uint16_t loc, uint16_t key);

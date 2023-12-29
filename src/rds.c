@@ -466,17 +466,8 @@ void get_rds_bits(uint8_t *bits) {
 #endif
 }
 
-#ifdef RBDS
-void init_rds_encoder(struct rds_params_t rds_params, char *call_sign) {
-	uint16_t new_pi;
-
-	if (call_sign[3]) {
-		new_pi = callsign2pi(call_sign);
-		if (new_pi) rds_params.pi = new_pi;
-	}
-#else
 void init_rds_encoder(struct rds_params_t rds_params) {
-#endif
+
 	/* AF */
 	if (rds_params.af.num_afs) {
 		set_rds_af(rds_params.af);

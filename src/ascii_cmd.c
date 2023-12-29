@@ -53,13 +53,13 @@ void process_ascii_cmd(char *str) {
 			return;
 		}
 		if (CMD_MATCHES("PS")) {
-			arg[PS_LENGTH] = 0;
-			set_rds_ps(arg);
+			arg[PS_LENGTH * 2] = 0;
+			set_rds_ps(xlat((unsigned char *)arg));
 			return;
 		}
 		if (CMD_MATCHES("RT")) {
-			arg[RT_LENGTH] = 0;
-			set_rds_rt(arg);
+			arg[RT_LENGTH * 2] = 0;
+			set_rds_rt(xlat((unsigned char *)arg));
 			return;
 		}
 		if (CMD_MATCHES("TA")) {
@@ -191,7 +191,7 @@ void process_ascii_cmd(char *str) {
 			return;
 		}
 		if (CMD_MATCHES("PTYN")) {
-			arg[8] = 0;
+			arg[PTYN_LENGTH] = 0;
 			if (arg[0] == '-') arg[0] = 0;
 			set_rds_ptyn(arg);
 			return;

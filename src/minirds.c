@@ -90,7 +90,12 @@ static void show_help(char *name, struct rds_params_t def_params) {
 		"\n"
 		"    -m,--volume       Output volume\n"
 		"\n"
+#ifdef RBDS
+		"    -i,--pi           Program Identification code or callsign\n"
+		"                      (PI code will be calculated from callsign)\n"
+#else
 		"    -i,--pi           Program Identification code\n"
+#endif
 		"                        [default: %04X]\n"
 		"    -s,--ps           Program Service name\n"
 		"                        [default: \"%s\"]\n"
@@ -108,10 +113,6 @@ static void show_help(char *name, struct rds_params_t def_params) {
 		"                        (more than one AF may be passed)\n"
 		"    -P,--ptyn         Program Type Name\n"
 		"\n"
-#ifdef RBDS
-		"    -S,--callsign     FCC callsign to calculate the PI code from\n"
-		"                        (overrides -i,--pi)\n"
-#endif
 		"    -C,--ctl          FIFO control pipe\n"
 		"\n"
 		"    -h,--help         Show this help text and exit\n"
@@ -146,12 +147,9 @@ int main(int argc, char **argv) {
 		.rt = "MiniRDS: Software RDS encoder",
 		.pi = 0x1000
 	};
-#ifdef RBDS
-	char callsign[5];
-#endif
-	char ps[PS_LENGTH+1];
-	char rt[RT_LENGTH+1];
-	char ptyn[PTYN_LENGTH+1];
+	char ps[PS_LENGTH + 1];
+	char rt[RT_LENGTH + 1];
+	char ptyn[PTYN_LENGTH + 1];
 	uint8_t volume = 50;
 
 	/* buffers */
@@ -202,9 +200,6 @@ int main(int argc, char **argv) {
 		{"tp",		required_argument, NULL, 'T'},
 		{"af",		required_argument, NULL, 'A'},
 		{"ptyn",	required_argument, NULL, 'P'},
-#ifdef RBDS
-		{"callsign",	required_argument, NULL, 'S'},
-#endif
 		{"ctl",		required_argument, NULL, 'C'},
 
 		{"help",	no_argument, NULL, 'h'},
@@ -213,9 +208,6 @@ int main(int argc, char **argv) {
 	};
 
 	memset(control_pipe, 0, 51);
-#ifdef RBDS
-	memset(callsign, 0, 5);
-#endif
 	memset(ps, 0, PS_LENGTH + 1);
 	memset(rt, 0, RT_LENGTH + 1);
 	memset(ptyn, 0, PTYN_LENGTH + 1);
@@ -232,21 +224,31 @@ keep_parsing_opts:
 			break;
 
 		case 'i': /* pi */
-			rds_params.pi = strtoul(optarg, NULL, 16);
+#ifdef RBDS
+			if (optarg[0] == 'K' || optarg[0] == 'W' ||
+				optarg[0] == 'k' || optarg[0] == 'w') {
+				rds_params.pi = callsign2pi(optarg);
+			} else
+#endif
+				rds_params.pi = strtoul(optarg, NULL, 16);
 			break;
 
 		case 's': /* ps */
-			strncpy(ps, optarg, PS_LENGTH);
+			strncpy(ps, xlat((unsigned char *)optarg), PS_LENGTH);
 			memcpy(rds_params.ps, ps, PS_LENGTH);
 			break;
 
 		case 'r': /* rt */
-			strncpy(rt, optarg, RT_LENGTH);
+			strncpy(rt, xlat((unsigned char *)optarg), RT_LENGTH);
 			memcpy(rds_params.rt, rt, RT_LENGTH);
 			break;
 
 		case 'p': /* pty */
-			rds_params.pty = strtoul(optarg, NULL, 10);
+			if (optarg[0] >= 'A') {
+				rds_params.pty = get_pty_code(optarg);
+			} else {
+				rds_params.pty = strtoul(optarg, NULL, 10);
+			}
 			break;
 
 		case 'T': /* tp */
@@ -261,12 +263,6 @@ keep_parsing_opts:
 			strncpy(ptyn, optarg, PTYN_LENGTH);
 			memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
 			break;
-
-#ifdef RBDS
-		case 'S': /* callsign */
-			strncpy(callsign, optarg, 4);
-			break;
-#endif
 
 		case 'C': /* ctl */
 			strncpy(control_pipe, optarg, 50);
@@ -308,11 +304,7 @@ done_parsing_opts:
 	set_output_volume(volume);
 
 	/* Initialize the RDS modulator */
-#ifdef RBDS
-	init_rds_encoder(rds_params, callsign);
-#else
 	init_rds_encoder(rds_params);
-#endif
 
 	/* AO format */
 	memset(&format, 0, sizeof(struct ao_sample_format));
