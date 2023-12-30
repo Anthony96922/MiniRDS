@@ -584,7 +584,7 @@ char *xlat(unsigned char *str) {
 			break;
 		}
 
-		if (new_str[i]) i++;
+		i++;
 		str++;
 	}
 
