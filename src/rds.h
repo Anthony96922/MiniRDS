@@ -67,11 +67,11 @@ typedef struct rds_params_t {
 	uint8_t ms;
 	uint8_t di;
 	/* PS */
-	char ps[PS_LENGTH];
+	unsigned char ps[PS_LENGTH];
 	/* RT */
-	char rt[RT_LENGTH];
+	unsigned char rt[RT_LENGTH];
 	/* PTYN */
-	char ptyn[PTYN_LENGTH];
+	unsigned char ptyn[PTYN_LENGTH];
 
 	/* AF */
 	struct rds_af_t af;
@@ -79,10 +79,10 @@ typedef struct rds_params_t {
 	uint8_t tx_ctime;
 
 	/* Long PS */
-	char lps[LPS_LENGTH];
+	unsigned char lps[LPS_LENGTH];
 
 	/* eRT */
-	char ert[ERT_LENGTH];
+	unsigned char ert[ERT_LENGTH];
 } rds_params_t;
 /* Here, the first member of the struct must be a scalar to avoid a
    warning on -Wmissing-braces with GCC < 4.8.3
@@ -286,17 +286,17 @@ extern void init_rds_encoder(struct rds_params_t rds_params);
 extern void exit_rds_encoder();
 extern void get_rds_bits(uint8_t *bits);
 extern void set_rds_pi(uint16_t pi_code);
-extern void set_rds_rt(char *rt);
-extern void set_rds_ps(char *ps);
-extern void set_rds_lps(char *lps);
-extern void set_rds_ert(char *ert);
+extern void set_rds_rt(unsigned char *rt);
+extern void set_rds_ps(unsigned char *ps);
+extern void set_rds_lps(unsigned char *lps);
+extern void set_rds_ert(unsigned char *ert);
 extern void set_rds_rtplus_flags(uint8_t flags);
 extern void set_rds_rtplus_tags(uint8_t *tags);
 extern void set_rds_ertplus_flags(uint8_t flags);
 extern void set_rds_ertplus_tags(uint8_t *tags);
 extern void set_rds_ta(uint8_t ta);
 extern void set_rds_pty(uint8_t pty);
-extern void set_rds_ptyn(char *ptyn);
+extern void set_rds_ptyn(unsigned char *ptyn);
 extern void set_rds_af(struct rds_af_t new_af_list);
 extern void set_rds_tp(uint8_t tp);
 extern void set_rds_ms(uint8_t ms);

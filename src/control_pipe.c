@@ -42,8 +42,8 @@ int open_control_pipe(char *filename) {
  * calls process_ascii_cmd.
  */
 void poll_control_pipe() {
-	static char pipe_buf[CTL_BUFFER_SIZE];
-	static char cmd_buf[CMD_BUFFER_SIZE];
+	static unsigned char pipe_buf[CTL_BUFFER_SIZE];
+	static unsigned char cmd_buf[CMD_BUFFER_SIZE];
 	struct timeval timeout;
 	int ret;
 	fd_set set;
@@ -70,10 +70,10 @@ void poll_control_pipe() {
 	}
 
 	/* handle commands per line */
-	token = strtok(pipe_buf, "\n");
+	token = strtok((char *)pipe_buf, "\n");
 	while (token != NULL) {
 		memset(cmd_buf, 0, CMD_BUFFER_SIZE);
-		strncpy(cmd_buf, token, CMD_BUFFER_SIZE - 1);
+		memcpy(cmd_buf, token, CMD_BUFFER_SIZE - 1);
 		token = strtok(NULL, "\n");
 
 		process_ascii_cmd(cmd_buf);

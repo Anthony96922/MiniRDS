@@ -22,15 +22,15 @@
 #include "lib.h"
 #include "ascii_cmd.h"
 
-#define CMD_MATCHES(a) (strcmp(cmd, a) == 0)
+#define CMD_MATCHES(a) (ustrcmp(cmd, (unsigned char *)a) == 0)
 
 /*
  * If a command is received, process it and update the RDS data.
  *
  */
 
-void process_ascii_cmd(char *str) {
-	char *cmd, *arg;
+void process_ascii_cmd(unsigned char *str) {
+	unsigned char *cmd, *arg;
 	uint16_t cmd_len = 0;
 
 	while (str[cmd_len] != 0 && cmd_len < CTL_BUFFER_SIZE)
@@ -49,17 +49,17 @@ void process_ascii_cmd(char *str) {
 				set_rds_pi(callsign2pi(arg));
 			} else
 #endif
-			set_rds_pi(strtoul(arg, NULL, 16));
+			set_rds_pi(strtoul((char *)arg, NULL, 16));
 			return;
 		}
 		if (CMD_MATCHES("PS")) {
 			arg[PS_LENGTH * 2] = 0;
-			set_rds_ps(xlat((unsigned char *)arg));
+			set_rds_ps(xlat(arg));
 			return;
 		}
 		if (CMD_MATCHES("RT")) {
 			arg[RT_LENGTH * 2] = 0;
-			set_rds_rt(xlat((unsigned char *)arg));
+			set_rds_rt(xlat(arg));
 			return;
 		}
 		if (CMD_MATCHES("TA")) {
@@ -76,7 +76,7 @@ void process_ascii_cmd(char *str) {
 		}
 		if (CMD_MATCHES("DI")) {
 			arg[2] = 0;
-			set_rds_di(strtoul(arg, NULL, 10));
+			set_rds_di(strtoul((char *)arg, NULL, 10));
 			return;
 		}
 		if (CMD_MATCHES("AF")) {
@@ -86,7 +86,7 @@ void process_ascii_cmd(char *str) {
 			char af_cmd;
 			float af[MAX_AFS], *af_iter;
 
-			arg_count = sscanf(arg,
+			arg_count = sscanf((char *)arg,
 				"%c " /* AF command */
 				"%f %f %f %f %f " /* AF list */
 				"%f %f %f %f %f "
@@ -125,21 +125,21 @@ void process_ascii_cmd(char *str) {
 
 		if (CMD_MATCHES("PTY")) {
 			if (arg[0] >= 'A') { /* PTY ID was passed */
-				set_rds_pty(get_pty_code(arg));
+				set_rds_pty(get_pty_code((char *)arg));
 			} else {
 				arg[2] = 0;
-				set_rds_pty(strtoul(arg, NULL, 10));
+				set_rds_pty(strtoul((char *)arg, NULL, 10));
 			}
 			return;
 		}
 		if (CMD_MATCHES("RTP")) {
 			char tag_names[2][32];
 			uint8_t tags[6];
-			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
+			if (sscanf((char *)arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
 				set_rds_rtplus_tags(tags);
-			} else if (sscanf(arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
+			} else if (sscanf((char *)arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
 				tag_names[0], &tags[1], &tags[2],
 				tag_names[1], &tags[4], &tags[5]) == 6) {
 				tags[0] = get_rtp_tag_id(tag_names[0]);
@@ -150,7 +150,7 @@ void process_ascii_cmd(char *str) {
 		}
 		if (CMD_MATCHES("MPX")) {
 			uint8_t gains[5];
-			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu",
+			if (sscanf((char *)arg, "%hhu,%hhu,%hhu,%hhu,%hhu",
 				&gains[0], &gains[1], &gains[2], &gains[3],
 				&gains[4]) == 5) {
 				set_carrier_volume(0, gains[0]);
@@ -163,7 +163,7 @@ void process_ascii_cmd(char *str) {
 		}
 		if (CMD_MATCHES("VOL")) {
 			arg[4] = 0;
-			set_output_volume(strtoul(arg, NULL, 10));
+			set_output_volume(strtoul((char *)arg, NULL, 10));
 			return;
 		}
 		if (CMD_MATCHES("LPS")) {
@@ -187,7 +187,7 @@ void process_ascii_cmd(char *str) {
 
 		if (CMD_MATCHES("RTPF")) {
 			arg[1] = 0;
-			set_rds_rtplus_flags(strtoul(arg, NULL, 10));
+			set_rds_rtplus_flags(strtoul((char *)arg, NULL, 10));
 			return;
 		}
 		if (CMD_MATCHES("PTYN")) {
@@ -199,11 +199,11 @@ void process_ascii_cmd(char *str) {
 		if (CMD_MATCHES("ERTP")) {
 			char tag_names[2][32];
 			uint8_t tags[6];
-			if (sscanf(arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
+			if (sscanf((char *)arg, "%hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
 				&tags[0], &tags[1], &tags[2], &tags[3],
 				&tags[4], &tags[5]) == 6) {
 				set_rds_ertplus_tags(tags);
-			} else if (sscanf(arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
+			} else if (sscanf((char *)arg, "%31[^,],%hhu,%hhu,%31[^,],%hhu,%hhu",
 				tag_names[0], &tags[1], &tags[2],
 				tag_names[1], &tags[4], &tags[5]) == 6) {
 				tags[0] = get_rtp_tag_id(tag_names[0]);
@@ -221,7 +221,7 @@ void process_ascii_cmd(char *str) {
 
 		if (CMD_MATCHES("ERTPF")) {
 			arg[1] = 0;
-			set_rds_ertplus_flags(strtoul(arg, NULL, 10));
+			set_rds_ertplus_flags(strtoul((char *)arg, NULL, 10));
 			return;
 		}
 	}

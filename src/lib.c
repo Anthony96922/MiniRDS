@@ -35,6 +35,20 @@ void msleep(unsigned long ms) {
 	nanosleep(&ts, NULL);
 }
 
+/* unsigned equivalent of strcmp */
+int ustrcmp(const unsigned char *s1, const unsigned char *s2) {
+	unsigned char c1, c2;
+
+	do {
+		c1 = *s1++;
+		c2 = *s2++;
+		if (c1 == '\0')
+			return c1 - c2;
+	} while (c1 == c2);
+
+	return c1 - c2;
+}
+
 /* RDS PTY list */
 static char *ptys[32] = {
 #ifdef RBDS
@@ -63,7 +77,7 @@ static char *ptys[32] = {
 
 char *get_pty_str(uint8_t pty_code) {
 	if (pty_code > 31) pty_code = 0;
-	return ptys[pty_code];
+	return (char *)ptys[pty_code];
 }
 
 uint8_t get_pty_code(char *pty_str) {
@@ -266,7 +280,7 @@ void add_checkwords(uint16_t *blocks, uint8_t *bits)
  * for more information.
  *
  */
-uint16_t callsign2pi(char *callsign) {
+uint16_t callsign2pi(unsigned char *callsign) {
 	uint16_t pi_code = 0;
 
 	if (callsign[0] == 'K' || callsign[0] == 'k') {
@@ -402,7 +416,7 @@ char *show_af_list(struct rds_af_t af_list) {
  *
  */
 #define XLATSTRLEN	255
-char *xlat(unsigned char *str) {
+unsigned char *xlat(unsigned char *str) {
 	static unsigned char new_str[XLATSTRLEN];
 	uint8_t i = 0;
 
@@ -589,7 +603,7 @@ char *xlat(unsigned char *str) {
 	}
 
 	new_str[i] = 0;
-	return (char *)new_str;
+	return new_str;
 }
 
 /*

@@ -117,11 +117,11 @@ static uint16_t get_next_af() {
 /* PS group (0A)
  */
 static void get_rds_ps_group(uint16_t *blocks) {
-	static char ps_text[PS_LENGTH];
+	static unsigned char ps_text[PS_LENGTH];
 	static uint8_t ps_state;
 
 	if (ps_state == 0 && rds_state.ps_update) {
-		strncpy(ps_text, rds_data.ps, PS_LENGTH);
+		memcpy(ps_text, rds_data.ps, PS_LENGTH);
 		rds_state.ps_update = 0; /* rewind */
 	}
 
@@ -150,13 +150,13 @@ static void get_rds_ps_group(uint16_t *blocks) {
 /* RT group (2A)
  */
 static void get_rds_rt_group(uint16_t *blocks) {
-	static char rt_text[RT_LENGTH];
+	static unsigned char rt_text[RT_LENGTH];
 	static uint8_t rt_state;
 
 	if (rds_state.rt_bursting) rds_state.rt_bursting--;
 
 	if (rds_state.rt_update) {
-		strncpy(rt_text, rds_data.rt, RT_LENGTH);
+		memcpy(rt_text, rds_data.rt, RT_LENGTH);
 		rds_state.ab ^= 1;
 		rds_state.rt_update = 0;
 		rt_state = 0; /* rewind when new RT arrives */
@@ -240,11 +240,11 @@ static uint8_t get_rds_ct_group(uint16_t *blocks) {
 /* PTYN group (10A)
  */
 static void get_rds_ptyn_group(uint16_t *blocks) {
-	static char ptyn_text[PTYN_LENGTH];
+	static unsigned char ptyn_text[PTYN_LENGTH];
 	static uint8_t ptyn_state;
 
 	if (ptyn_state == 0 && rds_state.ptyn_update) {
-		strncpy(ptyn_text, rds_data.ptyn, PTYN_LENGTH);
+		memcpy(ptyn_text, rds_data.ptyn, PTYN_LENGTH);
 		rds_state.ptyn_update = 0;
 	}
 
@@ -260,11 +260,11 @@ static void get_rds_ptyn_group(uint16_t *blocks) {
 
 /* Long PS group (15A) */
 static void get_rds_lps_group(uint16_t *blocks) {
-	static char lps_text[LPS_LENGTH];
+	static unsigned char lps_text[LPS_LENGTH];
 	static uint8_t lps_state;
 
 	if (lps_state == 0 && rds_state.lps_update) {
-		strncpy(lps_text, rds_data.lps, LPS_LENGTH);
+		memcpy(lps_text, rds_data.lps, LPS_LENGTH);
 		rds_state.lps_update = 0;
 	}
 
@@ -321,13 +321,13 @@ static void get_rds_rtplus_group(uint16_t *blocks) {
 
 /* eRT group */
 static void get_rds_ert_group(uint16_t *blocks) {
-	static char ert_text[ERT_LENGTH];
+	static unsigned char ert_text[ERT_LENGTH];
 	static uint8_t ert_state;
 
 	if (rds_state.ert_bursting) rds_state.ert_bursting--;
 
 	if (rds_state.ert_update) {
-		strncpy(ert_text, rds_data.ert, ERT_LENGTH);
+		memcpy(ert_text, rds_data.ert, ERT_LENGTH);
 		rds_state.ert_update = 0;
 		ert_state = 0; /* rewind when new eRT arrives */
 	}
@@ -512,7 +512,7 @@ void set_rds_pi(uint16_t pi_code) {
 	rds_data.pi = pi_code;
 }
 
-void set_rds_rt(char *rt) {
+void set_rds_rt(unsigned char *rt) {
 	uint8_t i = 0, len = 0;
 
 	rds_state.rt_update = 1;
@@ -541,7 +541,7 @@ void set_rds_rt(char *rt) {
 	rds_state.rt_bursting = rds_state.rt_segments;
 }
 
-void set_rds_ert(char *ert) {
+void set_rds_ert(unsigned char *ert) {
 	uint8_t i = 0, len = 0;
 
 	if (!ert[0]) {
@@ -573,7 +573,7 @@ void set_rds_ert(char *ert) {
 	rds_state.ert_bursting = rds_state.ert_segments;
 }
 
-void set_rds_ps(char *ps) {
+void set_rds_ps(unsigned char *ps) {
 	uint8_t len = 0;
 
 	rds_state.ps_update = 1;
@@ -582,7 +582,7 @@ void set_rds_ps(char *ps) {
 		rds_data.ps[len++] = *ps++;
 }
 
-void set_rds_lps(char *lps) {
+void set_rds_lps(unsigned char *lps) {
 	uint8_t i = 0, len = 0;
 
 	if (!lps[0]) {
@@ -653,7 +653,7 @@ void set_rds_pty(uint8_t pty) {
 	rds_data.pty = pty & INT8_L5;
 }
 
-void set_rds_ptyn(char *ptyn) {
+void set_rds_ptyn(unsigned char *ptyn) {
 	uint8_t len = 0;
 
 	if (!ptyn[0]) {

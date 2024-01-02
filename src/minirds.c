@@ -147,9 +147,6 @@ int main(int argc, char **argv) {
 		.rt = "MiniRDS: Software RDS encoder",
 		.pi = 0x1000
 	};
-	char ps[PS_LENGTH + 1];
-	char rt[RT_LENGTH + 1];
-	char ptyn[PTYN_LENGTH + 1];
 	uint8_t volume = 50;
 
 	/* buffers */
@@ -208,9 +205,6 @@ int main(int argc, char **argv) {
 	};
 
 	memset(control_pipe, 0, 51);
-	memset(ps, 0, PS_LENGTH + 1);
-	memset(rt, 0, RT_LENGTH + 1);
-	memset(ptyn, 0, PTYN_LENGTH + 1);
 
 keep_parsing_opts:
 
@@ -227,20 +221,18 @@ keep_parsing_opts:
 #ifdef RBDS
 			if (optarg[0] == 'K' || optarg[0] == 'W' ||
 				optarg[0] == 'k' || optarg[0] == 'w') {
-				rds_params.pi = callsign2pi(optarg);
+				rds_params.pi = callsign2pi((unsigned char *)optarg);
 			} else
 #endif
 				rds_params.pi = strtoul(optarg, NULL, 16);
 			break;
 
 		case 's': /* ps */
-			strncpy(ps, xlat((unsigned char *)optarg), PS_LENGTH);
-			memcpy(rds_params.ps, ps, PS_LENGTH);
+			memcpy(rds_params.ps, xlat((unsigned char *)optarg), PS_LENGTH);
 			break;
 
 		case 'r': /* rt */
-			strncpy(rt, xlat((unsigned char *)optarg), RT_LENGTH);
-			memcpy(rds_params.rt, rt, RT_LENGTH);
+			memcpy(rds_params.rt, xlat((unsigned char *)optarg), RT_LENGTH);
 			break;
 
 		case 'p': /* pty */
@@ -260,12 +252,11 @@ keep_parsing_opts:
 			break;
 
 		case 'P': /* ptyn */
-			strncpy(ptyn, optarg, PTYN_LENGTH);
-			memcpy(rds_params.ptyn, ptyn, PTYN_LENGTH);
+			memcpy(rds_params.ptyn, xlat((unsigned char *)optarg), PTYN_LENGTH);
 			break;
 
 		case 'C': /* ctl */
-			strncpy(control_pipe, optarg, 50);
+			memcpy(control_pipe, optarg, 50);
 			break;
 
 		case 'v': /* version */
