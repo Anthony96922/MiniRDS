@@ -16,7 +16,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define CMD_BUFFER_SIZE	160
+#define CMD_BUFFER_SIZE	255
 #define CTL_BUFFER_SIZE	(CMD_BUFFER_SIZE * 2)
 #define READ_TIMEOUT_MS	100
 

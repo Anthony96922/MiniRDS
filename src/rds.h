@@ -298,6 +298,7 @@ extern void set_rds_ta(uint8_t ta);
 extern void set_rds_pty(uint8_t pty);
 extern void set_rds_ptyn(unsigned char *ptyn);
 extern void set_rds_af(struct rds_af_t new_af_list);
+extern void clear_rds_af();
 extern void set_rds_tp(uint8_t tp);
 extern void set_rds_ms(uint8_t ms);
 extern void set_rds_ct(uint8_t ct);

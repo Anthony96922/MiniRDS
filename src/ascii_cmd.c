@@ -109,8 +109,7 @@ void process_ascii_cmd(unsigned char *str) {
 				set_rds_af(new_af);
 				break;
 			case 'c': /* clear */
-				memset(&new_af, 0, sizeof(struct rds_af_t));
-				set_rds_af(new_af);
+				clear_rds_af();
 				break;
 			default: /* other */
 				return;
