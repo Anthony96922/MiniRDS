@@ -41,6 +41,7 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	uint16_t chunk_size = 0;
 	uint8_t *chunks;
 	uint16_t packet_size = 0;
+	uint16_t packet_size_remainder;
 
 	/* image cannot be larger than 163840 bytes */
 	if (len > MAX_IMAGE_LEN) {
@@ -52,6 +53,7 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 
 	rft->channel = channel;
 	rft->file_len = len;
+
 
 	/* determine how many segments we need */
 	while (seg_counter < rft->file_len) {
@@ -80,7 +82,11 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	/* RFT packet size = chunk size * 5 data bytes per group */
 	packet_size = chunk_size * 5;
 
-	while (chunk_counter < len) {
+	/* the remainder (if file size is not a multiple of packet_size) */
+	packet_size_remainder = rft->file_len % packet_size;
+
+	/* calculate number of file chunks */
+	while (chunk_counter <= len) {
 		chunk_counter += packet_size;
 		rft->num_chunks++;
 	}
@@ -94,7 +100,14 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 		memset(chunks, 0, packet_size);
 		memcpy(chunks,
 			rft->file_data + i * packet_size, packet_size);
-		rft->crcs[i] = crc16(chunks, packet_size);
+		if (i == rft->num_chunks - 1) {
+			/* last chunk may have less than packet_size bytes */
+			rft->crcs[i] = crc16(chunks,
+				packet_size_remainder ?
+				packet_size_remainder : packet_size);
+		} else {
+			rft->crcs[i] = crc16(chunks, packet_size);
+		}
 	}
 
 	free(chunks);
@@ -157,13 +170,13 @@ static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[2] = (1 & INT8_L4) << 12; /* variant code */
 	blocks[2] |= (rft->crc_mode & INT8_L3) << 9; /* CRC mode */
 	/* chunk address */
-	blocks[2] |= rft->seg_addr_crc;
+	blocks[2] |= rft->seg_addr_crc & INT16_L9;
 
 	/* CRC */
 	blocks[3] = rft->crcs[rft->seg_addr_crc];
 
 	rft->seg_addr_crc++;
-	if (rft->seg_addr_crc >= rft->num_segs) {
+	if (rft->seg_addr_crc > rft->num_chunks) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File CRC sending complete\n");
 #endif
@@ -213,10 +226,10 @@ static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[0] |= (rft->channel & INT8_L4) << 8; /* pipe number */
 
 	/* toggle bit */
-	blocks[0] |= 0 << 7;
+	blocks[0] |= (0 & INT16_L1) << 7;
 
 	/* segment address */
-	blocks[0] |= (rft->seg_addr_img & INT16_U7) >> 7;
+	blocks[0] |= ((rft->seg_addr_img & INT16_U8) >> 8) & INT16_L7;
 	blocks[1] = (rft->seg_addr_img & INT16_L8) << 8;
 
 	/* image data */
@@ -227,7 +240,7 @@ static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[3] |= rft->file_data[rft->seg_addr_img * 5 + 4];
 
 	rft->seg_addr_img++;
-	if (rft->seg_addr_img >= rft->num_segs) {
+	if (rft->seg_addr_img > rft->num_segs) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File sending complete\n");
 #endif
@@ -257,7 +270,7 @@ static void get_rft_stream(uint16_t *blocks) {
 	}
 
 	rft_state++;
-	if (rft_state == 4) rft_state = 0;
+	if (rft_state == 15) rft_state = 0;
 }
 
 /*
