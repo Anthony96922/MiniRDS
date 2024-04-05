@@ -517,7 +517,7 @@ void set_rds_rt(unsigned char *rt) {
 
 	rds_state.rt_update = 1;
 	memset(rds_data.rt, ' ', RT_LENGTH);
-	while (*rt != 0 && len <= RT_LENGTH)
+	while (*rt != 0 && len < RT_LENGTH)
 		rds_data.rt[len++] = *rt++;
 
 	if (len < RT_LENGTH) {
@@ -551,7 +551,7 @@ void set_rds_ert(unsigned char *ert) {
 
 	rds_state.ert_update = 1;
 	memset(rds_data.ert, '\r', ERT_LENGTH);
-	while (*ert != 0 && len <= ERT_LENGTH)
+	while (*ert != 0 && len < ERT_LENGTH)
 		rds_data.ert[len++] = *ert++;
 
 	if (len < ERT_LENGTH) {
@@ -578,7 +578,7 @@ void set_rds_ps(unsigned char *ps) {
 
 	rds_state.ps_update = 1;
 	memset(rds_data.ps, ' ', PS_LENGTH);
-	while (*ps != 0 && len <= PS_LENGTH)
+	while (*ps != 0 && len < PS_LENGTH)
 		rds_data.ps[len++] = *ps++;
 }
 
@@ -592,7 +592,7 @@ void set_rds_lps(unsigned char *lps) {
 
 	rds_state.lps_update = 1;
 	memset(rds_data.lps, '\r', LPS_LENGTH);
-	while (*lps != 0 && len <= LPS_LENGTH)
+	while (*lps != 0 && len < LPS_LENGTH)
 		rds_data.lps[len++] = *lps++;
 
 	if (len < LPS_LENGTH) {
@@ -663,7 +663,7 @@ void set_rds_ptyn(unsigned char *ptyn) {
 
 	rds_state.ptyn_update = 1;
 	memset(rds_data.ptyn, ' ', PTYN_LENGTH);
-	while (*ptyn != 0 && len <= PTYN_LENGTH)
+	while (*ptyn != 0 && len < PTYN_LENGTH)
 		rds_data.ptyn[len++] = *ptyn++;
 }
 
