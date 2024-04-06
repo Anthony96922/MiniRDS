@@ -35,25 +35,24 @@ extern unsigned int station_logo_len;
 static struct rft_t station_logo_group;
 
 static void init_rft(struct rft_t *rft, uint8_t channel,
-	unsigned char *img, size_t len) {
+	bool usecrc, uint8_t crc_mode, unsigned char *img, size_t len) {
 	uint32_t seg_counter = 0;
-	uint32_t chunk_counter = 0;
-	uint16_t chunk_size = 0;
-	uint8_t *chunks;
-	uint16_t packet_size = 0;
-	uint16_t packet_size_remainder;
+	uint32_t crc_chunk_counter = 0;
+	uint16_t crc_chunk_size = 0;
+	uint8_t *crc_chunks;
+	uint16_t pkt_size;
+	uint16_t pkt_size_rem;
 
 	/* image cannot be larger than 163840 bytes */
 	if (len > MAX_IMAGE_LEN) {
 #ifdef RDS2_DEBUG
-		fprintf(stderr, "Image too large!\n");
+		fprintf(stderr, "W: Image too large!\n");
 #endif
-		return;
+		len = MAX_IMAGE_LEN;
 	}
 
 	rft->channel = channel;
 	rft->file_len = len;
-
 
 	/* determine how many segments we need */
 	while (seg_counter < rft->file_len) {
@@ -64,53 +63,97 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 	rft->file_data = malloc(rft->num_segs * 5);
 	/* unused data must be padded with zeroes */
 	memset(rft->file_data, 0, rft->num_segs * 5);
-	memcpy(rft->file_data, img, len);
+	memcpy(rft->file_data, img, rft->file_len);
 
-	rft->crc_mode = CRC_MODE_AUTO; /* autoselect */
+	rft->use_crc = usecrc;
 
-	if (len >= 81920) {
-		chunk_size = 64;
-		rft->crc_mode = CRC_MODE_64_GROUPS;
-	} else if (len > 40960) {
-		chunk_size = 32;
-		rft->crc_mode = CRC_MODE_32_GROUPS;
-	} else {
-		chunk_size = 16;
-		rft->crc_mode = CRC_MODE_16_GROUPS;
+	/* if CRC is disabled exit early */
+	if (!rft->use_crc) {
+		rft->crc_mode = 0;
+		rft->num_crc_chunks = 1; /* only 1 */
+		rft->crcs = malloc(sizeof(uint16_t));
+		rft->crcs[0] = 0x0000;
+		return;
 	}
 
-	/* RFT packet size = chunk size * 5 data bytes per group */
-	packet_size = chunk_size * 5;
+	rft->crc_mode = crc_mode & 7;
 
-	/* the remainder (if file size is not a multiple of packet_size) */
-	packet_size_remainder = rft->file_len % packet_size;
+	switch (rft->crc_mode) {
+	case RFT_CRC_MODE_ENTIRE_FILE:
+		/* no-op */
+		break;
 
-	/* calculate number of file chunks */
-	while (chunk_counter <= len) {
-		chunk_counter += packet_size;
-		rft->num_chunks++;
-	}
+	case RFT_CRC_MODE_16_GROUPS:
+		crc_chunk_size = 16;
+		break;
 
-	rft->crcs = malloc(rft->num_chunks * sizeof(uint16_t));
+	case RFT_CRC_MODE_32_GROUPS:
+		crc_chunk_size = 32;
+		break;
 
-	chunks = malloc(packet_size);
+	case RFT_CRC_MODE_64_GROUPS:
+		crc_chunk_size = 64;
+		break;
 
-	/* calculate CRC's for chunks */
-	for (uint16_t i = 0; i < rft->num_chunks; i++) {
-		memset(chunks, 0, packet_size);
-		memcpy(chunks,
-			rft->file_data + i * packet_size, packet_size);
-		if (i == rft->num_chunks - 1) {
-			/* last chunk may have less than packet_size bytes */
-			rft->crcs[i] = crc16(chunks,
-				packet_size_remainder ?
-				packet_size_remainder : packet_size);
+	case RFT_CRC_MODE_128_GROUPS:
+		crc_chunk_size = 128;
+		break;
+
+	case RFT_CRC_MODE_256_GROUPS:
+		crc_chunk_size = 256;
+		break;
+
+	case RFT_CRC_MODE_RFU: /* reserved - use auto mode */
+	case RFT_CRC_MODE_AUTO:
+		if (rft->file_len >= 81920) {
+			crc_chunk_size = 64;
+			rft->crc_mode = RFT_CRC_MODE_64_GROUPS;
+		} else if (rft->file_len > 40960) {
+			crc_chunk_size = 32;
+			rft->crc_mode = RFT_CRC_MODE_32_GROUPS;
 		} else {
-			rft->crcs[i] = crc16(chunks, packet_size);
+			crc_chunk_size = 16;
+			rft->crc_mode = RFT_CRC_MODE_16_GROUPS;
 		}
+		break;
 	}
 
-	free(chunks);
+	if (rft->crc_mode) { /* chunked modes */
+		/* RFT packet size = chunk size * 5 data bytes per group */
+		pkt_size = crc_chunk_size * 5;
+
+		/* the remainder (if file size is not a multiple of pkt_size) */
+		pkt_size_rem = rft->file_len % pkt_size;
+
+		/* calculate number of CRC chunks */
+		while (crc_chunk_counter <= len) {
+			crc_chunk_counter += pkt_size;
+			rft->num_crc_chunks++;
+		}
+
+		rft->crcs = malloc(rft->num_crc_chunks * sizeof(uint16_t));
+
+		crc_chunks = malloc(pkt_size);
+
+		/* calculate CRC's for chunks */
+		for (uint16_t i = 0; i < rft->num_crc_chunks; i++) {
+			memset(crc_chunks, 0, pkt_size);
+			memcpy(crc_chunks,
+				rft->file_data + i * pkt_size, pkt_size);
+			if ((i == rft->num_crc_chunks - 1) && pkt_size_rem) {
+				/* last chunk may have less bytes */
+				rft->crcs[i] = crc16(crc_chunks, pkt_size_rem);
+			} else {
+				rft->crcs[i] = crc16(crc_chunks, pkt_size);
+			}
+		}
+
+		free(crc_chunks);
+	} else { /* CRC of entire file */
+		rft->num_crc_chunks = 1; /* only 1 */
+		rft->crcs = malloc(sizeof(uint16_t));
+		rft->crcs[0] = crc16(rft->file_data, rft->file_len);
+	}
 }
 
 static void exit_rft(struct rft_t *rft) {
@@ -139,9 +182,9 @@ static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[1] = ODA_AID_RFT;
 
 	blocks[2] = (0 & INT18_L4) << 12; /* variant code */
-	blocks[2] |= ((rft->crc_mode ? 1 : 0) & INT8_L1) << 11; /* CRC */
-	blocks[2] |= (1 & INT8_L3) << 8; /* file version */
-	blocks[2] |= (1 & INT8_L6) << 2; /* file ID */
+	blocks[2] |= ((rft->use_crc ? 1 : 0) & INT8_L1) << 11; /* CRC */
+	blocks[2] |= (0 & INT8_L3) << 8; /* file version */
+	blocks[2] |= (0 & INT8_L6) << 2; /* file ID */
 	blocks[2] |= (rft->file_len & INT18_U2) >> 16;
 
 	blocks[3] = rft->file_len & INT16_ALL;
@@ -170,17 +213,16 @@ static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[2] = (1 & INT8_L4) << 12; /* variant code */
 	blocks[2] |= (rft->crc_mode & INT8_L3) << 9; /* CRC mode */
 	/* chunk address */
-	blocks[2] |= rft->seg_addr_crc & INT16_L9;
+	blocks[2] |= rft->crc_chunk_addr & INT16_L9;
 
 	/* CRC */
-	blocks[3] = rft->crcs[rft->seg_addr_crc];
+	blocks[3] = rft->crcs[rft->crc_chunk_addr];
 
-	rft->seg_addr_crc++;
-	if (rft->seg_addr_crc > rft->num_chunks) {
+	if (++rft->crc_chunk_addr > rft->num_crc_chunks) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File CRC sending complete\n");
 #endif
-		rft->seg_addr_crc = 0;
+		rft->crc_chunk_addr = 0;
 	}
 }
 
@@ -239,8 +281,7 @@ static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 	blocks[3] =  rft->file_data[rft->seg_addr_img * 5 + 3] << 8;
 	blocks[3] |= rft->file_data[rft->seg_addr_img * 5 + 4];
 
-	rft->seg_addr_img++;
-	if (rft->seg_addr_img > rft->num_segs) {
+	if (++rft->seg_addr_img > rft->num_segs) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File sending complete\n");
 #endif
@@ -270,7 +311,7 @@ static void get_rft_stream(uint16_t *blocks) {
 	}
 
 	rft_state++;
-	if (rft_state == 15) rft_state = 0;
+	if (rft_state == 25) rft_state = 0;
 }
 
 /*
@@ -303,6 +344,8 @@ void init_rds2_encoder() {
 	/* create a new stream */
 	init_rft(&station_logo_group,
 		0 /* pipe number */,
+		false /* don't use crc */,
+		RFT_CRC_MODE_AUTO,
 		station_logo,
 		station_logo_len
 	);

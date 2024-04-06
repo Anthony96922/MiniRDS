@@ -26,15 +26,15 @@ typedef struct rds2_oda_t {
 #define MAX_IMAGE_LEN	163840
 
 /* RFT CRC mode */
-enum crc_mode {
-	CRC_MODE_ENTIRE_FILE,	/* over entire file (universal) */
-	CRC_MODE_16_GROUPS,	/* chunks of 16 groups (size <= 40,960) */
-	CRC_MODE_32_GROUPS,	/* chunks of 32 groups (40,960 < size <= 81,920) */
-	CRC_MODE_64_GROUPS,	/* chunks of 64 groups (size > 81,960) */
-	CRC_MODE_128_GROUPS,	/* chunks of 128 groups (size > 81,960) */
-	CRC_MODE_256_GROUPS,	/* chunks of 256 groups (size > 81,960) */
-	CRC_MODE_RFU,		/* reserved */
-	CRC_MODE_AUTO		/* automatic between 1-3 based on size */
+enum rft_crc_mode {
+	RFT_CRC_MODE_ENTIRE_FILE,	/* over entire file (universal) */
+	RFT_CRC_MODE_16_GROUPS,		/* chunks of 16 groups (size <= 40,960) */
+	RFT_CRC_MODE_32_GROUPS,		/* chunks of 32 groups (40,960 < size <= 81,920) */
+	RFT_CRC_MODE_64_GROUPS,		/* chunks of 64 groups (size > 81,960) */
+	RFT_CRC_MODE_128_GROUPS,	/* chunks of 128 groups (size > 81,960) */
+	RFT_CRC_MODE_256_GROUPS,	/* chunks of 256 groups (size > 81,960) */
+	RFT_CRC_MODE_RFU,		/* reserved */
+	RFT_CRC_MODE_AUTO		/* automatic between 1-3 based on size */
 };
 
 /* RDS2 File Transfer */
@@ -47,15 +47,14 @@ typedef struct rft_t {
 	uint8_t file_id;
 	uint8_t variant_code;
 
-	/* need 2 separate segment address counters */
-	uint16_t seg_addr_crc;
 	uint16_t seg_addr_img;
 	uint16_t num_segs;
 
-	uint16_t chunk_addr;
-	uint16_t num_chunks;
-
+	/* CRC chunk map */
+	bool use_crc;
 	uint8_t crc_mode;
+	uint16_t crc_chunk_addr;
+	uint16_t num_crc_chunks;
 	uint16_t *crcs;
 } rft_t;
 
