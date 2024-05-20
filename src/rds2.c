@@ -29,30 +29,48 @@
 /* RFT */
 
 /* station logo */
-extern unsigned char station_logo[];
-extern unsigned int station_logo_len;
+static struct rft_t station_logo_stream;
+static struct rft_t album_art_stream;
 
-static struct rft_t station_logo_group;
-
-static void init_rft(struct rft_t *rft, uint8_t channel,
-	bool usecrc, uint8_t crc_mode, unsigned char *img, size_t len) {
+static void init_rft(struct rft_t *rft, uint8_t file_id,
+	bool usecrc, uint8_t crc_mode, char *file_path) {
 	uint32_t seg_counter = 0;
 	uint32_t crc_chunk_counter = 0;
 	uint16_t crc_chunk_size = 0;
-	uint8_t *crc_chunks;
-	uint16_t pkt_size;
-	uint16_t pkt_size_rem;
+	FILE *image_file_hdlr;
 
-	/* image cannot be larger than 163840 bytes */
-	if (len > MAX_IMAGE_LEN) {
+	rft->file_path = malloc(MAX_FILE_NAME_LEN + 1);
+	rft->file_path[MAX_FILE_NAME_LEN] = 0;
+	rft->file_data = malloc(MAX_IMAGE_LEN);
+	rft->crcs = malloc(MAX_CRC_CHUNK_ADDR * sizeof(uint16_t));
+	/* unused data must be padded with zeroes */
+	memset(rft->file_data, 0, MAX_IMAGE_LEN);
+
+	strncpy(rft->file_path, file_path, MAX_FILE_NAME_LEN);
+
+	/* open file in binary mode */
+	image_file_hdlr = fopen(file_path, "rb");
+	if (image_file_hdlr != NULL) {
+		fseek(image_file_hdlr, 0, SEEK_END);
+		rft->file_len = ftell(image_file_hdlr);
+		rewind(image_file_hdlr);
+
+		/* image cannot be larger than 163840 bytes */
+		if (rft->file_len > MAX_IMAGE_LEN) {
 #ifdef RDS2_DEBUG
-		fprintf(stderr, "W: Image too large!\n");
+			fprintf(stderr, "W: Image too large!\n");
 #endif
-		len = MAX_IMAGE_LEN;
+			rft->file_len = MAX_IMAGE_LEN;
+		}
+
+		/* copy image data to local buffer */
+		fread(rft->file_data, rft->file_len, 1, image_file_hdlr);
+	} else {
+		rft->file_len = 0;
 	}
 
-	rft->channel = channel;
-	rft->file_len = len;
+	rft->channel = 0;
+	rft->file_id = file_id;
 
 	/* determine how many segments we need */
 	while (seg_counter < rft->file_len) {
@@ -60,18 +78,12 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 		rft->num_segs++;
 	}
 
-	rft->file_data = malloc(rft->num_segs * 5);
-	/* unused data must be padded with zeroes */
-	memset(rft->file_data, 0, rft->num_segs * 5);
-	memcpy(rft->file_data, img, rft->file_len);
-
 	rft->use_crc = usecrc;
 
 	/* if CRC is disabled exit early */
 	if (!rft->use_crc) {
 		rft->crc_mode = 0;
 		rft->num_crc_chunks = 1; /* only 1 */
-		rft->crcs = malloc(sizeof(uint16_t));
 		rft->crcs[0] = 0x0000;
 		return;
 	}
@@ -120,44 +132,93 @@ static void init_rft(struct rft_t *rft, uint8_t channel,
 
 	if (rft->crc_mode) { /* chunked modes */
 		/* RFT packet size = chunk size * 5 data bytes per group */
-		pkt_size = crc_chunk_size * 5;
+		rft->pkt_size = crc_chunk_size * 5;
 
 		/* the remainder (if file size is not a multiple of pkt_size) */
-		pkt_size_rem = rft->file_len % pkt_size;
+		rft->pkt_size_rem = rft->file_len % rft->pkt_size;
 
 		/* calculate number of CRC chunks */
-		while (crc_chunk_counter <= len) {
-			crc_chunk_counter += pkt_size;
+		while (crc_chunk_counter <= rft->file_len) {
+			crc_chunk_counter += rft->pkt_size;
 			rft->num_crc_chunks++;
 		}
 
-		rft->crcs = malloc(rft->num_crc_chunks * sizeof(uint16_t));
-
-		crc_chunks = malloc(pkt_size);
+		rft->crc_chunks = malloc(rft->pkt_size);
 
 		/* calculate CRC's for chunks */
 		for (uint16_t i = 0; i < rft->num_crc_chunks; i++) {
-			memset(crc_chunks, 0, pkt_size);
-			memcpy(crc_chunks,
-				rft->file_data + i * pkt_size, pkt_size);
-			if ((i == rft->num_crc_chunks - 1) && pkt_size_rem) {
+			memset(rft->crc_chunks, 0, rft->pkt_size);
+			memcpy(rft->crc_chunks,
+				rft->file_data + i * rft->pkt_size, rft->pkt_size);
+			if ((i == rft->num_crc_chunks - 1) && rft->pkt_size_rem) {
 				/* last chunk may have less bytes */
-				rft->crcs[i] = crc16(crc_chunks, pkt_size_rem);
+				rft->crcs[i] = crc16(rft->crc_chunks, rft->pkt_size_rem);
 			} else {
-				rft->crcs[i] = crc16(crc_chunks, pkt_size);
+				rft->crcs[i] = crc16(rft->crc_chunks, rft->pkt_size);
 			}
 		}
 
-		free(crc_chunks);
+		free(rft->crc_chunks);
 	} else { /* CRC of entire file */
 		rft->num_crc_chunks = 1; /* only 1 */
-		rft->crcs = malloc(sizeof(uint16_t));
 		rft->crcs[0] = crc16(rft->file_data, rft->file_len);
 	}
 }
 
+static void update_rft(struct rft_t *rft) {
+	FILE *image_file_hdlr;
+
+	/* open file in binary mode */
+	image_file_hdlr = fopen(rft->file_path, "rb");
+	if (image_file_hdlr != NULL) {
+		fseek(image_file_hdlr, 0, SEEK_END);
+		rft->file_len = ftell(image_file_hdlr);
+		rewind(image_file_hdlr);
+
+		/* image cannot be larger than 163840 bytes */
+		if (rft->file_len > MAX_IMAGE_LEN) {
+#ifdef RDS2_DEBUG
+			fprintf(stderr, "W: Image too large!\n");
+#endif
+			rft->file_len = MAX_IMAGE_LEN;
+		}
+
+		/* copy image data to local buffer */
+		fread(rft->file_data, rft->file_len, 1, image_file_hdlr);
+	} else {
+		rft->file_len = 0;
+	}
+
+	if (rft->crc_mode) {
+		/* recalculate CRC's for chunks */
+		for (uint16_t i = 0; i < rft->num_crc_chunks; i++) {
+			memset(rft->crc_chunks, 0, rft->pkt_size);
+			memcpy(rft->crc_chunks,
+				rft->file_data + i * rft->pkt_size, rft->pkt_size);
+			if ((i == rft->num_crc_chunks - 1) && rft->pkt_size_rem) {
+				/* last chunk may have less bytes */
+				rft->crcs[i] = crc16(rft->crc_chunks, rft->pkt_size_rem);
+			} else {
+				rft->crcs[i] = crc16(rft->crc_chunks, rft->pkt_size);
+			}
+		}
+
+		free(rft->crc_chunks);
+	} else { /* CRC of entire file */
+		rft->num_crc_chunks = 1; /* only 1 */
+		rft->crcs[0] = crc16(rft->file_data, rft->file_len);
+	}
+
+#if 0
+	if (++rft->file_version > 64) {
+		rft->file_version = 0;
+	}
+#endif
+}
+
 static void exit_rft(struct rft_t *rft) {
 	free(rft->file_data);
+	free(rft->file_path);
 	free(rft->crcs);
 }
 
@@ -183,8 +244,8 @@ static void get_rft_var_0_data_group(struct rft_t *rft, uint16_t *blocks) {
 
 	blocks[2] = (0 & INT18_L4) << 12; /* variant code */
 	blocks[2] |= ((rft->use_crc ? 1 : 0) & INT8_L1) << 11; /* CRC */
-	blocks[2] |= (0 & INT8_L3) << 8; /* file version */
-	blocks[2] |= (0 & INT8_L6) << 2; /* file ID */
+	blocks[2] |= (rft->file_version & INT8_L3) << 8; /* file version */
+	blocks[2] |= (rft->file_id & INT8_L6) << 2; /* file ID */
 	blocks[2] |= (rft->file_len & INT18_U2) >> 16;
 
 	blocks[3] = rft->file_len & INT16_ALL;
@@ -286,32 +347,48 @@ static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 		fprintf(stderr, "File sending complete\n");
 #endif
 		rft->seg_addr_img = 0;
+		update_rft(rft);
 	}
 }
 
 static void get_rft_stream(uint16_t *blocks) {
 	static uint8_t rft_state;
+	static uint8_t rft_flip_flop = 0;
 
 	switch (rft_state) {
 		case 0:
-			get_rft_var_0_data_group(&station_logo_group, blocks);
+			get_rft_var_0_data_group(&station_logo_stream, blocks);
 			break;
 		case 1:
-			get_rft_var_1_data_group(&station_logo_group, blocks);
+			get_rft_var_1_data_group(&station_logo_stream, blocks);
+			break;
+		case 2:
+			get_rft_var_0_data_group(&station_logo_stream, blocks);
+			break;
+		case 3:
+			get_rft_var_1_data_group(&station_logo_stream, blocks);
 			break;
 #if 0
-		case 2:
-			get_rft_var_2_15_data_group(&station_logo_group, blocks);
+		case 4:
+			get_rft_var_2_15_data_group(&station_logo_stream, blocks);
+			break;
+		case 5:
+			get_rft_var_2_15_data_group(&station_logo_stream, blocks);
 			break;
 #endif
 
 		default:
-			get_rft_file_data_group(&station_logo_group, blocks);
+			if (rft_flip_flop) {
+				get_rft_file_data_group(&station_logo_stream, blocks);
+			} else {
+				get_rft_file_data_group(&station_logo_stream, blocks);
+			}
+			rft_flip_flop ^= 1;
 			break;
 	}
 
 	rft_state++;
-	if (rft_state == 25) rft_state = 0;
+	if (rft_state == 50) rft_state = 0;
 }
 
 /*
@@ -340,16 +417,24 @@ void get_rds2_bits(uint8_t stream, uint8_t *bits) {
 	add_checkwords(out_blocks, bits, true);
 }
 
-void init_rds2_encoder() {
-	/* create a new stream */
-	init_rft(&station_logo_group,
-		0 /* pipe number */,
+void init_rds2_encoder(char *station_logo_path, char *album_art_path) {
+	/* create a new stream for the station logo */
+	init_rft(&station_logo_stream,
+		0 /* file ID */,
 		false /* don't use crc */,
 		RFT_CRC_MODE_AUTO,
-		station_logo,
-		station_logo_len
+		station_logo_path
+	);
+
+	/* create a new stream for the album cover */
+	init_rft(&album_art_stream,
+		1 /* file ID */,
+		false /* don't use crc */,
+		RFT_CRC_MODE_AUTO,
+		album_art_path
 	);
 }
+
 void exit_rds2_encoder() {
-	exit_rft(&station_logo_group);
+	exit_rft(&station_logo_stream);
 }

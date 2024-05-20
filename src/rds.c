@@ -497,7 +497,7 @@ void init_rds_encoder(struct rds_params_t rds_params) {
 	/* initialize modulator objects */
 	init_rds_objects();
 #ifdef RDS2
-	init_rds2_encoder();
+	init_rds2_encoder("/tmp/rds2-image/stationlogo.png", "/tmp/rds2-image/albumart.png");
 #endif
 }
 

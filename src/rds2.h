@@ -23,7 +23,9 @@ typedef struct rds2_oda_t {
 
 #define GET_RDS2_ODA_CHANNEL(x)	(x & INT8_L5)
 
-#define MAX_IMAGE_LEN	163840
+#define MAX_FILE_NAME_LEN	64 /* does not include terminating null char */
+#define MAX_IMAGE_LEN		163840
+#define MAX_CRC_CHUNK_ADDR	511
 
 /* RFT CRC mode */
 enum rft_crc_mode {
@@ -41,12 +43,15 @@ enum rft_crc_mode {
 typedef struct rft_t {
 	uint8_t channel;
 
+	char *file_path;
 	unsigned char *file_data;
 	size_t file_len;
 	uint8_t file_version;
 	uint8_t file_id;
 	uint8_t variant_code;
 
+	uint16_t pkt_size;
+	uint16_t pkt_size_rem;
 	uint16_t seg_addr_img;
 	uint16_t num_segs;
 
@@ -55,9 +60,10 @@ typedef struct rft_t {
 	uint8_t crc_mode;
 	uint16_t crc_chunk_addr;
 	uint16_t num_crc_chunks;
+	uint8_t *crc_chunks;
 	uint16_t *crcs;
 } rft_t;
 
 extern void get_rds2_bits(uint8_t stream_num, uint8_t *bits);
-extern void init_rds2_encoder();
+extern void init_rds2_encoder(char *station_logo_path, char *album_art_path);
 extern void exit_rds2_encoder();
