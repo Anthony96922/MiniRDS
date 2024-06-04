@@ -86,6 +86,7 @@ static void init_rft(struct rft_t *rft, uint8_t file_id,
 	rft->channel = 0;
 	rft->file_id = file_id;
 	rft->toggle = 0;
+	rft->num_segs = 0;
 
 	/* determine how many segments we need */
 	while (seg_counter < rft->file_len) {
@@ -181,7 +182,7 @@ static void init_rft(struct rft_t *rft, uint8_t file_id,
 }
 
 static void update_rft(struct rft_t *rft) {
-	size_t file_size;
+	uint32_t seg_counter = 0;
 	FILE *image_file_hdlr;
 
 	/* open file in binary mode */
@@ -190,18 +191,18 @@ static void update_rft(struct rft_t *rft) {
 		return;
 	}
 
+	rft->prev_file_len = rft->file_len;
+
+	/* update size field */
 	fseek(image_file_hdlr, 0, SEEK_END);
-	file_size = ftell(image_file_hdlr);
+	rft->file_len = ftell(image_file_hdlr);
 	rewind(image_file_hdlr);
 
 	/* file didn't change so return early */
-	if (file_size == rft->prev_file_len) {
+	if (rft->file_len == rft->prev_file_len) {
 		fclose(image_file_hdlr);
 		return;
 	}
-
-	/* update size field */
-	rft->file_len = file_size;
 
 	/* image cannot be larger than 163840 bytes */
 	if (rft->file_len > MAX_IMAGE_LEN) {
@@ -215,6 +216,14 @@ static void update_rft(struct rft_t *rft) {
 	fread(rft->file_data, rft->file_len, 1, image_file_hdlr);
 
 	fclose(image_file_hdlr);
+
+	rft->num_segs = 0;
+
+	/* recalculate # of needed segments */
+	while (seg_counter < rft->file_len) {
+		seg_counter += 5;
+		rft->num_segs++;
+	}
 
 	if (rft->crc_mode) {
 		/* recalculate CRC's for chunks */
