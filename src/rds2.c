@@ -245,7 +245,7 @@ static void update_rft(struct rft_t *rft) {
 		rft->crcs[0] = crc16(rft->file_data, rft->file_len);
 	}
 
-	if (++rft->file_version > 64) {
+	if (++rft->file_version == 8) {
 		rft->file_version = 0;
 	}
 
