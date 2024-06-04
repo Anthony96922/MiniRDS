@@ -317,7 +317,6 @@ static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File CRC sending complete\n");
 #endif
-		rft->toggle ^= 1;
 		rft->crc_chunk_addr = 0;
 	}
 }
@@ -382,6 +381,7 @@ static void get_rft_file_data_group(struct rft_t *rft, uint16_t *blocks) {
 		fprintf(stderr, "File sending complete\n");
 #endif
 		rft->seg_addr_img = 0;
+		rft->toggle ^= 1;
 		update_rft(rft);
 	}
 }
