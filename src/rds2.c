@@ -248,8 +248,6 @@ static void update_rft(struct rft_t *rft) {
 	if (++rft->file_version == 8) {
 		rft->file_version = 0;
 	}
-
-	rft->toggle ^= 1;
 }
 
 static void exit_rft(struct rft_t *rft) {
@@ -319,6 +317,7 @@ static void get_rft_var_1_data_group(struct rft_t *rft, uint16_t *blocks) {
 #ifdef RDS2_DEBUG
 		fprintf(stderr, "File CRC sending complete\n");
 #endif
+		rft->toggle ^= 1;
 		rft->crc_chunk_addr = 0;
 	}
 }
