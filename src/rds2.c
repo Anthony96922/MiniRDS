@@ -181,6 +181,7 @@ static void init_rft(struct rft_t *rft, uint8_t file_id,
 }
 
 static void update_rft(struct rft_t *rft) {
+	size_t file_size;
 	FILE *image_file_hdlr;
 
 	/* open file in binary mode */
@@ -190,14 +191,17 @@ static void update_rft(struct rft_t *rft) {
 	}
 
 	fseek(image_file_hdlr, 0, SEEK_END);
-	rft->file_len = ftell(image_file_hdlr);
+	file_size = ftell(image_file_hdlr);
 	rewind(image_file_hdlr);
 
 	/* file didn't change so return early */
-	if (rft->file_len == rft->prev_file_len) {
+	if (file_size == rft->prev_file_len) {
 		fclose(image_file_hdlr);
 		return;
 	}
+
+	/* update size field */
+	rft->file_len = file_size;
 
 	/* image cannot be larger than 163840 bytes */
 	if (rft->file_len > MAX_IMAGE_LEN) {
@@ -232,11 +236,9 @@ static void update_rft(struct rft_t *rft) {
 		rft->crcs[0] = crc16(rft->file_data, rft->file_len);
 	}
 
-#if 0
 	if (++rft->file_version > 64) {
 		rft->file_version = 0;
 	}
-#endif
 
 	rft->toggle ^= 1;
 }
