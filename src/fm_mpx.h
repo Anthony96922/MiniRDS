@@ -27,11 +27,16 @@
 
 #define OUTPUT_SAMPLE_RATE	192000
 
+enum mpx_subcarriers {
+	MPX_SUBCARRIER_ST_PILOT,
+	MPX_SUBCARRIER_RDS_STREAM_0,
 #ifdef RDS2
-#define NUM_SUBCARRIERS		5
-#else
-#define NUM_SUBCARRIERS		1
+	MPX_SUBCARRIER_RDS2_STREAM_1,
+	MPX_SUBCARRIER_RDS2_STREAM_2,
+	MPX_SUBCARRIER_RDS2_STREAM_3,
 #endif
+	MPX_SUBCARRIER_END
+};
 
 extern void fm_mpx_init(uint32_t sample_rate);
 extern void fm_rds_get_frames(float *outbuf, size_t num_frames);

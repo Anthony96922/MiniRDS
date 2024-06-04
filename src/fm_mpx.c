@@ -46,7 +46,7 @@ void set_output_volume(uint8_t vol) {
 }
 
 /* subcarrier volumes */
-static float volumes[] = {
+static float volumes[MPX_SUBCARRIER_END] = {
 	0.09f, /* pilot tone: 9% */
 	0.09f, /* RDS: 4.5% modulation */
 #ifdef RDS2
@@ -59,10 +59,10 @@ static float volumes[] = {
 
 void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
 	/* check for valid index */
-	if (carrier > NUM_SUBCARRIERS) return;
+	if (carrier >= MPX_SUBCARRIER_END) return;
 
 	/* don't allow levels over 15% */
-	if (new_volume >= 15) volumes[carrier] = 0.09f;
+	if (new_volume >= 15) new_volume = 15;
 
 	volumes[carrier] = (float)new_volume / 100.0f;
 }
@@ -86,20 +86,29 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		out = 0.0f;
 
 		/* Pilot tone for calibration */
-		out += osc_get_cos(&osc_19k) * volumes[0];
+		out += osc_get_cos(&osc_19k)
+			* volumes[MPX_SUBCARRIER_ST_PILOT];
 
-		out += osc_get_cos(&osc_57k) * get_rds_sample(0) * volumes[1];
+		out += osc_get_cos(&osc_57k)
+			* get_rds_sample(0)
+			* volumes[MPX_SUBCARRIER_RDS_STREAM_0];
 #ifdef RDS2
 		/* RDS2 is quadrature phase */
 
 		/* 90 degree shift */
-		out += osc_get_sin(&osc_67k) * get_rds_sample(1) * volumes[2];
+		out += osc_get_sin(&osc_67k)
+			* get_rds_sample(1)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_1];
 
 		/* 180 degree shift */
-		out += -osc_get_cos(&osc_71k) * get_rds_sample(2) * volumes[3];
+		out += -osc_get_cos(&osc_71k)
+			* get_rds_sample(2)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_2];
 
 		/* 270 degree shift */
-		out += -osc_get_sin(&osc_76k) * get_rds_sample(3) * volumes[4];
+		out += -osc_get_sin(&osc_76k)
+			* get_rds_sample(3)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_3];
 #endif
 
 		/* update oscillator */
