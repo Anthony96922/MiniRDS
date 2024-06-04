@@ -46,9 +46,11 @@ typedef struct rft_t {
 	char *file_path;
 	unsigned char *file_data;
 	size_t file_len;
+	size_t prev_file_len;
 	uint8_t file_version;
 	uint8_t file_id;
 	uint8_t variant_code;
+	uint8_t toggle;
 
 	uint16_t pkt_size;
 	uint16_t pkt_size_rem;
@@ -65,5 +67,5 @@ typedef struct rft_t {
 } rft_t;
 
 extern void get_rds2_bits(uint8_t stream_num, uint8_t *bits);
-extern void init_rds2_encoder(char *station_logo_path, char *album_art_path);
+extern void init_rds2_encoder(char *station_logo_path);
 extern void exit_rds2_encoder();

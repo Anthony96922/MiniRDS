@@ -27,7 +27,7 @@ libs = -lm -lsamplerate -lpthread -lao
 
 ifeq ($(RDS2), 1)
 	CFLAGS += -DRDS2
-	obj += rds2.o
+	obj += rds2.o rds2_image_data.o
 endif
 
 ifeq ($(RDS2_DEBUG), 1)
