@@ -90,9 +90,16 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 
 		out += osc_get_cos(&osc_57k) * get_rds_sample(0) * volumes[1];
 #ifdef RDS2
-		out += osc_get_cos(&osc_67k) * get_rds_sample(1) * volumes[2];
-		out += osc_get_cos(&osc_71k) * get_rds_sample(2) * volumes[3];
-		out += osc_get_cos(&osc_76k) * get_rds_sample(3) * volumes[4];
+		/* RDS2 is quadrature phase */
+
+		/* 90 degree shift */
+		out += osc_get_sin(&osc_67k) * get_rds_sample(1) * volumes[2];
+
+		/* 180 degree shift */
+		out += -osc_get_cos(&osc_71k) * get_rds_sample(2) * volumes[3];
+
+		/* 270 degree shift */
+		out += -osc_get_sin(&osc_76k) * get_rds_sample(3) * volumes[4];
 #endif
 
 		/* update oscillator */
