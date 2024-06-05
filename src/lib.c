@@ -382,29 +382,33 @@ char *show_af_list(struct rds_af_t af_list) {
 		if (af_list.afs[i] == AF_CODE_LFMF_FOLLOWS) {
 			/* The next AF will be for LF/MF */
 			is_lfmf = true;
-		} else {
-			if (is_lfmf) {
-#ifdef RBDS
-				/* MF (FCC) */
-				freq = 540.0f + ((float)(af_list.afs[i] - 17) * 10.0f);
-				outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
-#else
-				if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { /* LF */
-					freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
-					outstrlen += sprintf(outstr + outstrlen, " (LF)%.0f", freq);
-				} else { /*if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) {*/ /* MF */
-					freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
-					outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
-				}
-#endif
-			} else {
-				/* FM */
-				freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
-				outstrlen += sprintf(outstr + outstrlen, " %.1f", freq);
-			}
-			is_lfmf = false;
+			continue;
 		}
+
+		if (is_lfmf) {
+#ifdef RBDS
+			/* MF (FCC) */
+			freq = 540.0f + ((float)(af_list.afs[i] - 17) * 10.0f);
+			outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
+#else
+			if (af_list.afs[i] >= 1 && af_list.afs[i] <= 15) { /* LF */
+				freq = 153.0f + ((float)(af_list.afs[i] -  1) * 9.0f);
+				outstrlen += sprintf(outstr + outstrlen, " (LF)%.0f", freq);
+			} else { /*if (af_list.afs[i] >= 16 && af_list.afs[i] <= 135) {*/ /* MF */
+				freq = 531.0f + ((float)(af_list.afs[i] - 16) * 9.0f);
+				outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
+			}
+#endif
+			continue;
+		}
+
+		/* FM */
+		freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
+		outstrlen += sprintf(outstr + outstrlen, " %.1f", freq);
+
+		is_lfmf = false;
 	}
+
 	return outstr;
 }
 
