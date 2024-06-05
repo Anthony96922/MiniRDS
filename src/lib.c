@@ -399,14 +399,13 @@ char *show_af_list(struct rds_af_t af_list) {
 				outstrlen += sprintf(outstr + outstrlen, " (MF)%.0f", freq);
 			}
 #endif
+			is_lfmf = false;
 			continue;
 		}
 
 		/* FM */
 		freq = (float)((uint16_t)af_list.afs[i] + 875) / 10.0f;
 		outstrlen += sprintf(outstr + outstrlen, " %.1f", freq);
-
-		is_lfmf = false;
 	}
 
 	return outstr;
