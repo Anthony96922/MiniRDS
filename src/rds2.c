@@ -29,8 +29,7 @@
 /* RFT */
 
 /* fallback station logo */
-extern unsigned char *station_logo;
-extern unsigned int station_logo_len;
+#include "rds2_image_data.c"
 
 /* station logo */
 static struct rft_t station_logo_stream;
