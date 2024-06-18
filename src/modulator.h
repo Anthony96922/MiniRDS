@@ -33,6 +33,9 @@ typedef struct rds_t {
 	uint8_t sample_count;
 	uint16_t in_sample_index;
 	uint16_t out_sample_index;
+	uint8_t symbol_shift;
+	float *symbol_shift_buf;
+	uint8_t symbol_shift_buf_idx;
 } rds_t;
 
 extern void init_rds_objects();

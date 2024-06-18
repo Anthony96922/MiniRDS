@@ -40,6 +40,46 @@ void init_rds_objects() {
 		rds_ctx[i]->bit_buffer = malloc(BITS_PER_GROUP);
 		rds_ctx[i]->sample_buffer =
 			malloc(SAMPLE_BUFFER_SIZE * sizeof(float));
+
+		/*
+		 * symbol shifting to reduce total power of aggregate carriers
+		 *
+		 * see:
+		 * https://ietresearch.onlinelibrary.wiley.com/doi/pdf/10.1049/el.2019.0292
+		 * for more information
+		 */
+		switch (i) {
+		case 1:
+			/* time offset of 1/2 */
+			rds_ctx[i]->symbol_shift = SAMPLES_PER_BIT / 2;
+			rds_ctx[i]->symbol_shift_buf = malloc(
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			memset(rds_ctx[i]->symbol_shift_buf, 0,
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			break;
+		case 2:
+			/* time offset of 1/4 */
+			rds_ctx[i]->symbol_shift = SAMPLES_PER_BIT / 4;
+			rds_ctx[i]->symbol_shift_buf = malloc(
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			memset(rds_ctx[i]->symbol_shift_buf, 0,
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			break;
+		case 3:
+			/* time offset of 3/4 */
+			rds_ctx[i]->symbol_shift = (SAMPLES_PER_BIT / 4) * 3;
+			rds_ctx[i]->symbol_shift_buf = malloc(
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			memset(rds_ctx[i]->symbol_shift_buf, 0,
+				rds_ctx[i]->symbol_shift * sizeof(float));
+			break;
+		default: /* stream 0 */
+			/* no time offset */
+			rds_ctx[i]->symbol_shift = 0;
+			break;
+		}
+		rds_ctx[i]->symbol_shift_buf_idx = 0;
+
 	}
 
 	waveform = malloc(2 * sizeof(float));
@@ -58,6 +98,9 @@ void exit_rds_objects() {
 		free(rds_ctx[i]->sample_buffer);
 		free(rds_ctx[i]->bit_buffer);
 		free(rds_ctx[i]);
+		if (rds_ctx[i]->symbol_shift) {
+			free(rds_ctx[i]->symbol_shift_buf);
+		}
 	}
 
 	free(rds_ctx);
@@ -73,10 +116,13 @@ void exit_rds_objects() {
  * pre-generated elementary waveform samples.
  */
 float get_rds_sample(uint8_t stream_num) {
-	struct rds_t *rds = rds_ctx[stream_num];
+	struct rds_t *rds;
 	uint16_t idx;
 	float *cur_waveform;
 	float sample;
+
+	/* select context */
+	rds = rds_ctx[stream_num];
 
 	if (rds->sample_count == SAMPLES_PER_BIT) {
 		if (rds->bit_pos == BITS_PER_GROUP) {
@@ -113,7 +159,18 @@ float get_rds_sample(uint8_t stream_num) {
 	}
 	rds->sample_count++;
 
+	if (rds->symbol_shift) {
+		sample = rds->symbol_shift_buf[rds->symbol_shift_buf_idx++];
+		if (rds->symbol_shift_buf_idx == rds->symbol_shift) {
+			rds->symbol_shift_buf_idx = 0;
+		}
+		rds->symbol_shift_buf[rds->symbol_shift_buf_idx] =
+			rds->sample_buffer[rds->out_sample_index];
+		goto done;
+	}
+
 	sample = rds->sample_buffer[rds->out_sample_index];
+done:
 	rds->sample_buffer[rds->out_sample_index++] = 0;
 	if (rds->out_sample_index == SAMPLE_BUFFER_SIZE)
 		rds->out_sample_index = 0;
