@@ -160,12 +160,14 @@ float get_rds_sample(uint8_t stream_num) {
 	rds->sample_count++;
 
 	if (rds->symbol_shift) {
-		sample = rds->symbol_shift_buf[rds->symbol_shift_buf_idx++];
-		if (rds->symbol_shift_buf_idx == rds->symbol_shift) {
-			rds->symbol_shift_buf_idx = 0;
-		}
-		rds->symbol_shift_buf[rds->symbol_shift_buf_idx] =
+		rds->symbol_shift_buf[rds->symbol_shift_buf_idx++] =
 			rds->sample_buffer[rds->out_sample_index];
+
+		if (rds->symbol_shift_buf_idx == rds->symbol_shift)
+			rds->symbol_shift_buf_idx = 0;
+
+		sample = rds->symbol_shift_buf[rds->symbol_shift_buf_idx];
+
 		goto done;
 	}
 
