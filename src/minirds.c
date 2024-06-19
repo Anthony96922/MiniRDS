@@ -131,8 +131,8 @@ static void show_version() {
 }
 
 /* check MPX volume level */
-static uint8_t check_mpx_vol(uint8_t volume) {
-	if (volume < 1 || volume > 100) {
+static uint8_t check_mpx_vol(float volume) {
+	if (volume < 0.0f || volume > 100.0f) {
 		fprintf(stderr, "Output volume must be between 1-100.\n");
 		return 1;
 	}
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
 		.rt = "MiniRDS: Software RDS encoder",
 		.pi = 0x1000
 	};
-	uint8_t volume = 50;
+	float volume = 50.0f;
 
 	/* buffers */
 	float *mpx_buffer;
@@ -213,7 +213,7 @@ keep_parsing_opts:
 
 	switch (opt) {
 		case 'm': /* volume */
-			volume = strtoul(optarg, NULL, 10);
+			volume = strtof(optarg, NULL);
 			if (check_mpx_vol(volume) > 0) return 1;
 			break;
 

@@ -40,9 +40,9 @@ static struct osc_t osc_76k;
 
 static float mpx_vol;
 
-void set_output_volume(uint8_t vol) {
-	if (vol > 100) vol = 100;
-	mpx_vol = ((float)vol / 100.0f);
+void set_output_volume(float vol) {
+	if (vol > 100.0f) vol = 100.0f;
+	mpx_vol = vol / 100.0f;
 }
 
 /* subcarrier volumes */
@@ -57,14 +57,14 @@ static float volumes[MPX_SUBCARRIER_END] = {
 #endif
 };
 
-void set_carrier_volume(uint8_t carrier, uint8_t new_volume) {
+void set_carrier_volume(uint8_t carrier, float new_volume) {
 	/* check for valid index */
 	if (carrier >= MPX_SUBCARRIER_END) return;
 
 	/* don't allow levels over 15% */
-	if (new_volume >= 15) new_volume = 15;
+	if (new_volume >= 15.0f) new_volume = 15.0f;
 
-	volumes[carrier] = (float)new_volume / 100.0f;
+	volumes[carrier] = new_volume / 100.0f;
 }
 
 void fm_mpx_init(uint32_t sample_rate) {

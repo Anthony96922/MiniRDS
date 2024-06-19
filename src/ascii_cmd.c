@@ -148,8 +148,8 @@ void process_ascii_cmd(unsigned char *str) {
 			return;
 		}
 		if (CMD_MATCHES("MPX")) {
-			uint8_t gains[5];
-			if (sscanf((char *)arg, "%hhu,%hhu,%hhu,%hhu,%hhu",
+			float gains[5];
+			if (sscanf((char *)arg, "%f,%f,%f,%f,%f",
 				&gains[0], &gains[1], &gains[2], &gains[3],
 				&gains[4]) == 5) {
 				set_carrier_volume(0, gains[0]);
@@ -162,7 +162,7 @@ void process_ascii_cmd(unsigned char *str) {
 		}
 		if (CMD_MATCHES("VOL")) {
 			arg[4] = 0;
-			set_output_volume(strtoul((char *)arg, NULL, 10));
+			set_output_volume(strtof((char *)arg, NULL));
 			return;
 		}
 		if (CMD_MATCHES("LPS")) {
