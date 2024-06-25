@@ -393,32 +393,58 @@ static uint8_t get_rds_other_groups(uint16_t *blocks) {
 		return 1;
 	}
 
-	/* eRT groups */
-	if (rds_data.ert[0]) {
-		if (++group_counter[ert_cfg.group] >= 3) {
-			group_counter[ert_cfg.group] = 0;
-			get_rds_ert_group(blocks);
-			return 1;
-		}
-	}
-
 	/* eRT+ groups */
-	if (++group_counter[ertplus_cfg.group] >= 30) {
-		group_counter[ertplus_cfg.group] = 0;
-		get_rds_ertplus_group(blocks);
-		return 1;
-	}
-
-	/* Long PS groups */
-	if (rds_data.lps[0]) {
-		if (++group_counter[GROUP_15A] >= 15) {
-			group_counter[GROUP_15A] = 0;
-			get_rds_lps_group(blocks);
+	if (rds_data.ert[0]) {
+		if (++group_counter[ertplus_cfg.group] >= 30) {
+			group_counter[ertplus_cfg.group] = 0;
+			get_rds_ertplus_group(blocks);
 			return 1;
 		}
 	}
 
 	return 0;
+}
+
+/*
+ * Codes a group once every 3 groups
+ * Ex: 0A, 2A, 0A, 12A, 2A, 0A, 2A, 12A, etc
+ */
+static uint8_t get_rds_long_text_groups(uint16_t *blocks) {
+	static uint8_t group_selector = 0;
+	static uint8_t group_slot_counter = 0;
+
+	/* exit early until the 4th call */
+	if (++group_slot_counter < 4)
+		return 0;
+
+	/* reset the slot counter */
+	group_slot_counter = 0;
+
+	/* 3:1 ratio */
+	switch (group_selector) {
+	case 0:
+	case 1:
+	case 2: /* eRT */
+		if (rds_data.ert[0]) {
+			get_rds_ert_group(blocks);
+			goto group_coded;
+		}
+		break;
+	case 3: /* Long PS */
+		if (rds_data.lps[0]) {
+			get_rds_lps_group(blocks);
+			goto group_coded;
+		}
+		break;
+	}
+
+	/* if no group was coded */
+	if (++group_selector == 4) group_selector = 0;
+	return 0;
+
+group_coded:
+	if (++group_selector == 4) group_selector = 0;
+	return 1;
 }
 
 /* Creates an RDS group.
@@ -435,21 +461,40 @@ static void get_rds_group(uint16_t *blocks) {
 	blocks[3] = 0;
 
 	/* Generate block content */
-	/* CT (clock time) has priority on other group types */
-	if (!(rds_data.tx_ctime && get_rds_ct_group(blocks))) {
-		if (!get_rds_other_groups(blocks)) { /* Other groups */
-			/* These are always transmitted */
-			if (!state) { /* Type 0A groups */
-				get_rds_ps_group(blocks);
-				state++;
-			} else { /* Type 2A groups */
-				get_rds_rt_group(blocks);
-				if (!rds_state.rt_bursting) state++;
-			}
-			if (state == 2) state = 0;
-		}
+
+	/* CT (clock time) has priority over other group types */
+	if (rds_data.tx_ctime && get_rds_ct_group(blocks)) {
+		goto group_coded;
 	}
 
+	/* Longer text groups get medium priority */
+	if (get_rds_long_text_groups(blocks)) {
+		goto group_coded;
+	}
+
+	/* Other groups */
+	if (get_rds_other_groups(blocks)) {
+		goto group_coded;
+	}
+
+	/* Standard group sequence */
+	switch (state) {
+	case 0:
+		/* Type 0A groups */
+		get_rds_ps_group(blocks);
+		state++;
+		break;
+	case 1:
+		/* Type 2A groups */
+		get_rds_rt_group(blocks);
+		if (!rds_state.rt_bursting) {
+			state++;
+		}
+		break;
+	}
+	if (state == 2) state = 0;
+
+group_coded:
 	/* for version B groups */
 	if (IS_TYPE_B(blocks)) {
 		blocks[2] = rds_data.pi;
