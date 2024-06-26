@@ -16,6 +16,11 @@ RDS2_DEBUG = 0
 # Set to 1 for NRSC LF/MF AF coding and PTY list
 RBDS = 1
 
+# Use a static libsamplerate library (.a)
+# Disabled by default
+STATIC_LIBSAMPLERATE ?= 0
+LIBSAMPLERATE_DIR ?= ./libsamplerate
+
 CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -O2 -std=c18
 
@@ -23,7 +28,14 @@ CFLAGS += -DVERSION=\"$(VERSION)\"
 
 obj = minirds.o waveforms.o rds.o fm_mpx.o control_pipe.o osc.o \
 	resampler.o modulator.o lib.o net.o ascii_cmd.o
-libs = -lm -lsamplerate -lpthread -lao
+libs = -lm -lpthread -lao
+
+ifeq ($(STATIC_LIBSAMPLERATE), 1)
+	libs += $(LIBSAMPLERATE_DIR)/lib/libsamplerate.a
+	CFLAGS += -I$(LIBSAMPLERATE_DIR)/include
+else
+	libs += -lsamplerate
+endif
 
 ifeq ($(RDS2), 1)
 	CFLAGS += -DRDS2
