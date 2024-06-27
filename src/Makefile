@@ -9,6 +9,13 @@ VERSION=1.0
 # (don't forget to run "make clean" first)
 RDS2 = 1
 
+# Shift RDS2 stream 1, 2 and 3 carriers by 90, 180 and 270 degress
+# respectively to reduce the peak amplitude
+RDS2_QUADRATURE_CARRIER = 1
+
+# RDS2 symbol shifting to further reduce peak amplitude
+RDS2_SYMBOL_SHIFTING = 1
+
 # RDS2 debugging
 RDS2_DEBUG = 0
 
@@ -40,6 +47,12 @@ endif
 ifeq ($(RDS2), 1)
 	CFLAGS += -DRDS2
 	obj += rds2.o
+ifeq ($(RDS2_QUADRATURE_CARRIER), 1)
+	CFLAGS += -DRDS2_QUADRATURE_CARRIER
+endif
+ifeq ($(RDS2_SYMBOL_SHIFTING), 1)
+	CFLAGS += -DRDS2_SYMBOL_SHIFTING
+endif
 endif
 
 ifeq ($(RDS2_DEBUG), 1)

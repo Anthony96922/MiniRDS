@@ -41,6 +41,7 @@ void init_rds_objects() {
 		rds_ctx[i]->sample_buffer =
 			malloc(SAMPLE_BUFFER_SIZE * sizeof(float));
 
+#ifdef RDS2_SYMBOL_SHIFTING
 		/*
 		 * symbol shifting to reduce total power of aggregate carriers
 		 *
@@ -78,6 +79,7 @@ void init_rds_objects() {
 			rds_ctx[i]->symbol_shift = 0;
 			break;
 		}
+#endif
 		rds_ctx[i]->symbol_shift_buf_idx = 0;
 
 	}

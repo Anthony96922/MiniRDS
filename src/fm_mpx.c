@@ -93,6 +93,7 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 			* get_rds_sample(0)
 			* volumes[MPX_SUBCARRIER_RDS_STREAM_0];
 #ifdef RDS2
+#ifdef RDS2_QUADRATURE_CARRIER
 		/* RDS2 is quadrature phase */
 
 		/* 90 degree shift */
@@ -109,6 +110,19 @@ void fm_rds_get_frames(float *outbuf, size_t num_frames) {
 		out += -osc_get_sin(&osc_76k)
 			* get_rds_sample(3)
 			* volumes[MPX_SUBCARRIER_RDS2_STREAM_3];
+#else
+		out += osc_get_cos(&osc_67k)
+			* get_rds_sample(1)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_1];
+
+		out += osc_get_cos(&osc_71k)
+			* get_rds_sample(2)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_2];
+
+		out += osc_get_cos(&osc_76k)
+			* get_rds_sample(3)
+			* volumes[MPX_SUBCARRIER_RDS2_STREAM_3];
+#endif
 #endif
 
 		/* update oscillator */
