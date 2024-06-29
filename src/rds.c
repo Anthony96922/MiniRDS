@@ -150,7 +150,7 @@ static void get_rds_ps_group(uint16_t *blocks) {
 /* Slow labeling (1A)
  */
 static void get_rds_1a_group(uint16_t *blocks) {
-	blocks[1] |= 2 << 12;
+	blocks[1] |= 1 << 12;
 	blocks[2] |= rds_data.ecc;
 }
 
