@@ -68,6 +68,10 @@ typedef struct rds_params_t {
 	uint8_t di;
 	/* PS */
 	unsigned char ps[PS_LENGTH];
+
+	/* Extended Country Code */
+	uint8_t ecc;
+
 	/* RT */
 	unsigned char rt[RT_LENGTH];
 	/* PTYN */
@@ -286,6 +290,7 @@ extern void init_rds_encoder(struct rds_params_t rds_params);
 extern void exit_rds_encoder();
 extern void get_rds_bits(uint8_t *bits);
 extern void set_rds_pi(uint16_t pi_code);
+extern void set_rds_ecc(uint8_t ecc);
 extern void set_rds_rt(unsigned char *rt);
 extern void set_rds_ps(unsigned char *ps);
 extern void set_rds_lps(unsigned char *lps);

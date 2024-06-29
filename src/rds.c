@@ -147,6 +147,13 @@ static void get_rds_ps_group(uint16_t *blocks) {
 	if (ps_state == 4) ps_state = 0;
 }
 
+/* Slow labeling (1A)
+ */
+static void get_rds_1a_group(uint16_t *blocks) {
+	blocks[1] |= 2 << 12;
+	blocks[2] |= rds_data.ecc;
+}
+
 /* RT group (2A)
  */
 static void get_rds_rt_group(uint16_t *blocks) {
@@ -367,6 +374,14 @@ static void get_rds_ertplus_group(uint16_t *blocks) {
 static uint8_t get_rds_other_groups(uint16_t *blocks) {
 	static uint8_t group_counter[GROUP_15B];
 
+	if (rds_data.ecc) {
+		if (++group_counter[GROUP_1A] >= 60) {
+			group_counter[GROUP_1A] = 0;
+			get_rds_1a_group(blocks);
+			return 1;
+		}
+	}
+
 	/* Type 3A groups */
 	if (oda_state.count) {
 		if (++group_counter[GROUP_3A] >= 20) {
@@ -556,6 +571,10 @@ void exit_rds_encoder() {
 
 void set_rds_pi(uint16_t pi_code) {
 	rds_data.pi = pi_code;
+}
+
+void set_rds_ecc(uint8_t ecc) {
+	rds_data.ecc = ecc;
 }
 
 void set_rds_rt(unsigned char *rt) {

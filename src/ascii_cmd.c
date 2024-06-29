@@ -131,6 +131,10 @@ void process_ascii_cmd(unsigned char *str) {
 			}
 			return;
 		}
+		if (CMD_MATCHES("ECC")) {
+			set_rds_ecc(strtoul((char *)arg, NULL, 16));
+			return;
+		}
 		if (CMD_MATCHES("RTP")) {
 			char tag_names[2][32];
 			uint8_t tags[6];
